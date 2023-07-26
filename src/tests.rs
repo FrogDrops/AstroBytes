@@ -8,7 +8,7 @@ mod test {
     #[test]
     fn test_lda_immediate_load() {
         let mut cpu = CPU::new();
-        cpu.run_program();
+        cpu.load_and_run(vec![0xA9, 0x05, 0x00]);
         assert_eq!(cpu.register_a, 0x05);
         assert!(cpu.status & 0b0000_0010 == 0b00);
         assert!(cpu.status & 0b1000_0000 == 0);
@@ -17,7 +17,7 @@ mod test {
     #[test]
     fn test_lda_zero_flag() {
         let mut cpu = CPU::new();
-        cpu.run_program();
+        cpu.load_and_run(vec![0xA9, 0x00, 0x00]);
         assert!(cpu.status & 0b0000_0010 == 0b10);
     }
 
@@ -25,7 +25,7 @@ mod test {
     fn test_tax() {
         let mut cpu = CPU::new();
         cpu.register_a = 10;
-        cpu.run_program();
+        cpu.load_and_run(vec![0xAA, 0x00]);
 
         assert_eq!(cpu.register_x, 10)
     }
@@ -33,7 +33,7 @@ mod test {
     #[test]
     fn test_five_ops() {
         let mut cpu = CPU::new();
-        cpu.run_program();
+        cpu.load_and_run(vec![0xA9, 0xC0, 0xAA, 0xE8, 0x00]);
 
         assert_eq!(cpu.register_x, 0xc1)
     }
@@ -42,7 +42,7 @@ mod test {
     fn test_inx_overflow() {
         let mut cpu = CPU::new();
         cpu.register_x = 0xff;
-        cpu.run_program();
+        cpu.load_and_run(vec![0xE8, 0xE8, 0x00]);
 
         assert_eq!(cpu.register_x, 1)
     }
