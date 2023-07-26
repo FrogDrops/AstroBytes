@@ -31,19 +31,6 @@ pub mod processor {
         memory: [u8; 0xFFFF]
     }
 
-    /*
-    The addressing mode defines how the program should work with
-    the next 1 or 2 bytes
-
-    Addressing Modes:
-    Absolute - Takes the entire address as an argument (2 or 1 byte(s))
-    Zero Page - Takes an address in the first 255 bytes (1 byte)
-    Immediate - Takes a value as an argument (1 or 2 bytes)
-    Implied - Takes no argument
-    Indirect - Address that points to address with the instructions (2 bytes)
-
-    Each can be modified with optional offsets from the x and y registers
-    */    
     pub enum AddressingMode {
         Absolute,
         AbsoluteX,
@@ -168,18 +155,80 @@ pub mod processor {
             }
         }
 
-        fn operand_address(&self, mode: &AddressingMode) -> u16 {
+         /*
+        The addressing mode defines how the program should work with
+        the next 1 or 2 bytes
+
+        Addressing Modes:
+        Absolute - Takes the entire address as an argument (2 or 1 byte(s))
+        Zero Page - Takes an address in the first 255 bytes (1 byte)
+        Immediate - Takes a value as an argument (1 or 2 bytes)
+        Implied - Takes no argument
+        Indirect - Absolute Address that points to address with the instructions (2 bytes)
+        Indexed Indirect -  Zero page address + register points to address that has the target address
+        Indirect Index - Fetches address from zero page address, adds y to fetched address to get address that contains target address
+        Some can be modified with optional offsets from the x and y registers
+        */    
+
+        fn operand_address(&mut self, mode: &AddressingMode) -> u16 {
 
             match mode {
                 AddressingMode::Immediate => self.program_counter,
+
                 AddressingMode::ZeroPage => self.read_memory(self.program_counter) as u16,
+
                 AddressingMode::Absolute => self.read_memory_u16(self.program_counter),
+
                 AddressingMode::ZeroPageX => {
                     let position = self.read_memory(self.program_counter);
                     let address = position.wrapping_add(self.register_x) as u16;
+                    address 
+                }
+
+                AddressingMode::ZeroPageY => {
+                    let position: u8 = self.read_memory(self.program_counter);
+                    let address: u16 = position.wrapping_add(self.register_y) as u16;
                     address
                 }
 
+                AddressingMode::AbsoluteX => {
+                    let base_address: u16 = self.read_memory_u16(self.program_counter);
+                    let address: u16 = base_address.wrapping_add(self.register_x as u16);
+
+                    address
+                }
+
+                AddressingMode::AbsoluteY => {
+                    let base_address: u16 = self.read_memory_u16(self.program_counter);
+                    let address: u16 = base_address.wrapping_add(self.register_y as u16);
+                    
+                    address
+                }
+
+                AddressingMode::IndirectX => {
+                    let base_address = self.read_memory(self.program_counter);
+                    // Points to address that contains target address
+                    let pointer: u8 = (base_address as u8).wrapping_add(self.register_x); 
+                    let lsb = self.read_memory(pointer as u16);
+                    let msb = self.read_memory(pointer.wrapping_add(1) as u16);
+
+                    (msb as u16) << 8 | (lsb as u16)
+                }
+
+                AddressingMode::IndirectY => {
+                    let base_address = self.read_memory(self.program_counter);
+                    
+                    let lsb = self.read_memory(base_address as u16);
+                    let msb = self.read_memory((base_address as u8).wrapping_add(1) as u16);
+                    let deref_base = (msb as u16) << 8 | (lsb as u16);
+                    let deref = deref_base.wrapping_add(self.register_y as u16);
+
+                    deref
+                }
+
+                AddressingMode::None => {
+                    panic!("Mode is not supported!");
+                }
             }
         }
 
