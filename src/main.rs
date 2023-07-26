@@ -1,6 +1,7 @@
 mod processor;
 mod tests;
+mod opcode_info;
 
 fn main() {
-    println!("Hello, world!");
+    print!("Hello World!");
 }
