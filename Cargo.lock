@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "AstroByte"
+name = "astrobyte"
 version = "0.1.0"
