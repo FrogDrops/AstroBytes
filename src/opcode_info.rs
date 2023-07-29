@@ -13,11 +13,11 @@ The 6502 Reference from nesdev was used to help me make this! Great stuff there!
 */
 
 pub struct Opcode {
-    mnemonic: &'static str,
-    mode: AddressingMode,
-    hex_code: u8,
-    byte_length: u8,
-    num_cycles: u8
+    pub mnemonic: &'static str,
+    pub mode: AddressingMode,
+    pub hex_code: u8,
+    pub byte_length: u8,
+    pub num_cycles: u8
 }
 
 impl Opcode {

@@ -3,5 +3,5 @@ mod tests;
 mod opcode_info;
 
 fn main() {
-    print!("Hello World!");
+    print!("Hello World!\n");
 }

@@ -1,5 +1,6 @@
-use crate::opcode_info::{self, OPCODES_TABLE};
-use std::collections::HashMap;
+#![allow(non_snake_case)]
+#![allow(dead_code)]
+use crate::opcode_info::OPCODES_TABLE;
 
 /*
    For the CPU component (also known as the 2A03 chip in the case of the NES :D):
@@ -10,7 +11,6 @@ use std::collections::HashMap;
    4. Repeat the cycle (wait for the next clock signal)
 */
 
-#[allow(dead_code)]
 pub struct CPU {
     pub register_a: u8,
     pub register_x: u8,
@@ -33,8 +33,6 @@ pub struct CPU {
     
     Some can be modified with optional offsets from the x and y registers
     */    
-
-#[allow(dead_code)]
 pub enum AddressingMode {
     Absolute,
     AbsoluteX,
@@ -50,38 +48,37 @@ pub enum AddressingMode {
 }
 
 pub trait Memory {
-    fn read_memory(&self, address: u16) -> u8;
+    fn read_memory_u8(&self, address: u16) -> u8;
 
-    fn write_memory(&mut self, address: u16, data: u8);
+    fn write_memory_u8(&mut self, address: u16, data: u8);
 
     /* 
     Addresses are stored in little endian mode: lsb first, msb second.
     If we want to fetch an address, we have to keep that in mind
     */
     fn read_memory_u16(&mut self, position: u16) -> u16 {
-        let lsb = self.read_memory(position) as u16;
-        let msb = self.read_memory(position + 1) as u16;
+        let lsb = self.read_memory_u8(position) as u16;
+        let msb = self.read_memory_u8(position + 1) as u16;
         (msb << 8) | (lsb as u16)
     }
 
     fn write_memory_u16(&mut self, position: u16, data: u16) {
         let msb = (data >> 8) as u8;
         let lsb = (data & 0xFF) as u8;
-        self.write_memory(position, lsb);
-        self.write_memory(position + 1, msb);
+        self.write_memory_u8(position, lsb);
+        self.write_memory_u8(position + 1, msb);
     }    
 }
 
 impl Memory for CPU {
-    fn read_memory(&self, address: u16) -> u8 {
+    fn read_memory_u8(&self, address: u16) -> u8 {
         self.ram[address as usize]
     }
-    fn write_memory(&mut self, address: u16, data: u8) {
+    fn write_memory_u8(&mut self, address: u16, data: u8) {
         self.ram[address as usize] = data;
     }
 }
 
-#[allow(dead_code)]
 impl CPU {
     pub fn new() -> Self {
         CPU {
@@ -95,13 +92,14 @@ impl CPU {
     }
 
     // Run instructions in the program ROM section
-    pub fn run(&mut self) {
+    pub fn execute(&mut self) {
+
         loop {
-            let opcode = self.read_memory(self.program_counter);
+            let opcode = self.read_memory_u8(self.program_counter);
+            let opcode_info = OPCODES_TABLE.get(&opcode).unwrap();
             self.program_counter += 1;
 
             match opcode {
-
                 // BRK
                 0x00 => return,
 
@@ -112,14 +110,12 @@ impl CPU {
 
                 // LDA
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
-                    let argument = self.read_memory(self.program_counter); 
-                    self.program_counter += 1;
-                    self.LDA();
+                    self.LDA(&opcode_info.mode);
                 }
 
                 // STA
                 0x85 | 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 => {
-
+                    self.STA(&opcode_info.mode);
                 }
 
                 // TAX
@@ -129,6 +125,8 @@ impl CPU {
 
                 _ => todo!(),
             }
+
+            self.update_program_counter(&opcode);
         }
     }
 
@@ -138,10 +136,10 @@ impl CPU {
         self.write_memory_u16(0xFFFC, 0x8000);
     }
 
-    pub fn load_and_run(&mut self, program: Vec<u8>) {
+    pub fn load_and_execute(&mut self, program: Vec<u8>) {
         self.load_program(program);
         self.reset(); // Make sure no data from any previous program carries over
-        self.run();
+        self.execute();
     }
 
     // Clear registers
@@ -151,6 +149,12 @@ impl CPU {
         self.register_y = 0;
         self.status_flags = 0;
         self.program_counter = self.read_memory_u16(0xFFFC);
+    }
+
+    pub fn update_program_counter(&mut self, opcode: &u8) {
+        let opcode_info = OPCODES_TABLE.get(&opcode).unwrap();
+        // Byte-length includes the opcode itself, which we don't want to include
+        self.program_counter += (opcode_info.byte_length as u16) - 1;
     }
 
     fn operand_address(&mut self, mode: &AddressingMode) -> u16 {
@@ -179,37 +183,37 @@ impl CPU {
             }
 
             AddressingMode::IndexedIndirect => {
-                let base_address = self.read_memory(self.program_counter);
+                let base_address = self.read_memory_u8(self.program_counter);
                 
                 let pointer: u8 = (base_address as u8).wrapping_add(self.register_x); 
-                let lsb = self.read_memory(pointer as u16);
-                let msb = self.read_memory(pointer.wrapping_add(1) as u16);
+                let lsb = self.read_memory_u8(pointer as u16);
+                let msb = self.read_memory_u8(pointer.wrapping_add(1) as u16);
                 
                 (msb as u16) << 8 | (lsb as u16)
             }
 
             AddressingMode::IndirectIndexed => {
-                let base_address = self.read_memory(self.program_counter);
+                let base_address = self.read_memory_u8(self.program_counter);
                 
-                let lsb = self.read_memory(base_address as u16);
-                let msb = self.read_memory((base_address as u8).wrapping_add(1) as u16);
+                let lsb = self.read_memory_u8(base_address as u16);
+                let msb = self.read_memory_u8((base_address as u8).wrapping_add(1) as u16);
                 let unadded_address = (msb as u16) << 8 | (lsb as u16);
                 let added_address = unadded_address.wrapping_add(self.register_y as u16);
                 
                 added_address
             }
 
-            AddressingMode::ZeroPage => self.read_memory(self.program_counter) as u16,
+            AddressingMode::ZeroPage => self.read_memory_u8(self.program_counter) as u16,
 
             AddressingMode::ZeroPageX => {
-                let position = self.read_memory(self.program_counter);
+                let position = self.read_memory_u8(self.program_counter);
                 let address = position.wrapping_add(self.register_x) as u16;
                 
                 address 
             }
 
             AddressingMode::ZeroPageY => {
-                let position: u8 = self.read_memory(self.program_counter);
+                let position: u8 = self.read_memory_u8(self.program_counter);
                 let address: u16 = position.wrapping_add(self.register_y) as u16;
                 
                 address
@@ -267,19 +271,17 @@ impl CPU {
 
     fn LDA(&mut self, mode: &AddressingMode) {
         let address = self.operand_address(mode);
-        self.register_a = self.read_memory(address);
+        self.register_a = self.read_memory_u8(address);
         self.zero_and_negative_flags(self.register_a);
     }
 
     fn STA(&mut self, mode: &AddressingMode) {
         let address = self.operand_address(mode);
-        self.write_memory(address, self.register_a);
+        self.write_memory_u8(address, self.register_a);
     }
 
     fn TAX(&mut self) {
         self.register_x = self.register_a;
         self.zero_and_negative_flags(self.register_x);
-    }
-
-    
+    }  
 }
