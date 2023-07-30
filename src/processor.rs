@@ -113,9 +113,30 @@ impl CPU {
                     self.LDA(&opcode_info.mode);
                 }
 
+                // LDX
+                0xA2 | 0xA6 | 0xB6 | 0xAE | 0xBE => {
+                    self.LDX(&opcode_info.mode);
+                }
+
+                // LDY
+                0xA0 | 0xA4 | 0xB4 | 0xAC | 0xBC => { 
+                    self.LDY(&opcode_info.mode);
+                }
+
+
                 // STA
                 0x85 | 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 => {
                     self.STA(&opcode_info.mode);
+                }
+
+                // STX
+                0x86 | 0x96 | 0x8E => {
+                    self.STX(&opcode_info.mode);
+                }
+
+                // STY
+                0x84 | 0x94 | 0x8C => {
+                    self.STY(&opcode_info.mode);
                 }
 
                 // TAX
@@ -131,15 +152,16 @@ impl CPU {
     }
 
     // Load into program ROM
-    pub fn load_program(&mut self, program: Vec<u8>) {
+    pub fn load_program(&mut self, program: &Vec<u8>) {
         self.ram[0x8000..(0x8000 + program.len())].copy_from_slice(&program[..]);
         self.write_memory_u16(0xFFFC, 0x8000);
     }
 
     pub fn load_and_execute(&mut self, program: Vec<u8>) {
-        self.load_program(program);
+        self.load_program(&program);
         self.reset(); // Make sure no data from any previous program carries over
         self.execute();
+        self.clear_program(&program);
     }
 
     // Clear registers
@@ -151,10 +173,17 @@ impl CPU {
         self.program_counter = self.read_memory_u16(0xFFFC);
     }
 
+    // Program counter must be updated accordingly after every executed opcode
     pub fn update_program_counter(&mut self, opcode: &u8) {
         let opcode_info = OPCODES_TABLE.get(&opcode).unwrap();
         // Byte-length includes the opcode itself, which we don't want to include
         self.program_counter += (opcode_info.byte_length as u16) - 1;
+    }
+
+    pub fn clear_program(&mut self, program: &Vec<u8>) {
+        for i in 0x8000..= 0x8000 + program.len() {
+            self.ram[i] = 0;
+        }
     }
 
     fn operand_address(&mut self, mode: &AddressingMode) -> u16 {
@@ -275,9 +304,31 @@ impl CPU {
         self.zero_and_negative_flags(self.register_a);
     }
 
+    fn LDX(&mut self, mode: &AddressingMode) {
+        let address: u16 = self.operand_address(mode);
+        self.register_x = self.read_memory_u8(address);
+        self.zero_and_negative_flags(self.register_x);
+    }
+
+    fn LDY(&mut self, mode: &AddressingMode) {
+        let address: u16 = self.operand_address(mode);
+        self.register_y = self.read_memory_u8(address);
+        self.zero_and_negative_flags(self.register_y);
+    }
+
     fn STA(&mut self, mode: &AddressingMode) {
         let address = self.operand_address(mode);
         self.write_memory_u8(address, self.register_a);
+    }
+
+    fn STX(&mut self, mode: &AddressingMode) {
+        let address: u16 = self.operand_address(mode);
+        self.write_memory_u8(address, self.register_x);
+    }
+
+    fn STY(&mut self, mode: &AddressingMode) {
+        let address: u16 = self.operand_address(mode);
+        self.write_memory_u8(address, self.register_y);
     }
 
     fn TAX(&mut self) {
