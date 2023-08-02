@@ -17,6 +17,7 @@ pub struct CPU {
     pub register_y: u8,
     pub status_flags: u8,
     pub program_counter: u16,
+    pub stack_pointer: u8,
     ram: [u8; 0xFFFF]
 }
 
@@ -87,6 +88,7 @@ impl CPU {
             register_y: 0,
             status_flags: 0,
             program_counter: 0,
+            stack_pointer: 0xFF,
             ram: [0; 0xFFFF]
         }
     }
@@ -104,9 +106,7 @@ impl CPU {
                 0x00 => return,
 
                 // INX
-                0xE8 => {
-                    self.INX();
-                }
+                0xE8 => self.INX(),
 
                 // LDA
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
@@ -123,7 +123,15 @@ impl CPU {
                     self.LDY(&opcode_info.mode);
                 }
 
+                // SEC
+                0x38 => self.SEC(),
 
+                // SED
+                0xF8 => self.SED(),
+
+                // SEI
+                0x78 => self.SEI(),
+                
                 // STA
                 0x85 | 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 => {
                     self.STA(&opcode_info.mode);
@@ -140,10 +148,23 @@ impl CPU {
                 }
 
                 // TAX
-                0xAA => { 
-                    self.TAX();
-                }
+                0xAA => self.TAX(),
 
+                // TAY
+                0xA8 => self.TAY(),
+                
+                // TSX
+                0xBA => self.TSX(),
+                
+                // TXA
+                0x8A => self.TXA(),
+                
+                // TXS
+                0x9A => self.TXS(),
+                
+                // TYA
+                0x98 => self.TYA(),
+                
                 _ => todo!(),
             }
 
@@ -316,6 +337,18 @@ impl CPU {
         self.zero_and_negative_flags(self.register_y);
     }
 
+    fn SEC(&mut self) {
+        self.status_flags = self.status_flags | 0b0000_0001;
+    }
+
+    fn SED(&mut self) {
+        self.status_flags = self.status_flags | 0b0000_1000;
+    }
+
+    fn SEI(&mut self) {
+        self.status_flags = self.status_flags | 0b0000_0100;
+    }
+
     fn STA(&mut self, mode: &AddressingMode) {
         let address = self.operand_address(mode);
         self.write_memory_u8(address, self.register_a);
@@ -335,4 +368,28 @@ impl CPU {
         self.register_x = self.register_a;
         self.zero_and_negative_flags(self.register_x);
     }  
+
+    fn TAY(&mut self) {
+        self.register_y = self.register_a;
+        self.zero_and_negative_flags(self.register_y);
+    }
+
+    fn TSX(&mut self) {
+        self.register_x = self.stack_pointer;
+        self.zero_and_negative_flags(self.register_x);
+    }
+
+    fn TXA(&mut self) {
+        self.register_a = self.register_x;
+        self.zero_and_negative_flags(self.register_a);
+    }
+
+    fn TXS(&mut self) {
+        self.stack_pointer = self.register_x;
+    }
+
+    fn TYA(&mut self) {
+        self.register_a = self.register_y;
+        self.zero_and_negative_flags(self.register_a);
+    }
 }
