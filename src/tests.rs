@@ -35,10 +35,34 @@ mod test {
     }
 
     #[test]
-    fn test_inx_overflow() {
+    fn test_dec_dex_dey() {
+        let mut cpu: CPU = CPU::new();
+
+        cpu.load_and_execute(vec![0xA2, 0x09, 0xCA, 0x00]);
+        assert_eq!(cpu.register_x, 8);
+
+        cpu.load_and_execute(vec![0xA0, 0x03, 0x88, 0x00]);
+        assert_eq!(cpu.register_y, 2);
+
+        cpu.load_and_execute(vec![0xA9, 0x09, 0x85, 0x05, 0xC6, 0x05, 0x00]);
+        let result = cpu.read_memory_u8(0x05);
+        assert_eq!(result, 8);
+    }
+
+    #[test]
+    fn test_inc_inx_iny() {
         let mut cpu = CPU::new();
+
+        // Tests INX overflow
         cpu.load_and_execute(vec![0xA2, 0xFF, 0xE8, 0xE8, 0x00]);
-        assert_eq!(cpu.register_x, 1)
+        assert_eq!(cpu.register_x, 1);
+
+        cpu.load_and_execute(vec![0xA0, 0x03, 0xC8, 0x00]);
+        assert_eq!(cpu.register_y, 4);
+
+        cpu.load_and_execute(vec![0xE6, 0x05, 0x00]);
+        let result = cpu.read_memory_u8(0x05);
+        assert_eq!(result, 1);
     }
 
     #[test]

@@ -99,28 +99,68 @@ impl CPU {
         loop {
             let opcode = self.read_memory_u8(self.program_counter);
             let opcode_info = OPCODES_TABLE.get(&opcode).unwrap();
+            let mode = &opcode_info.mode;
+
             self.program_counter += 1;
 
             match opcode {
                 // BRK
                 0x00 => return,
 
+                0x18 => self.CLC(),
+
+                0xD8 => self.CLD(),
+
+                0x58 => self.CLI(),
+
+                0xB8 => self.CLV(),
+
+                0xC9 | 0xC5 | 0xD5 | 0xCD | 0xDD | 0xD9 | 0xC1 | 0xD1 => {
+                    self.COMPARE(mode, self.register_a);
+                }
+
+                0xE0 | 0xE4 | 0xEC => {
+                    self.COMPARE(mode, self.register_x);
+                }
+
+                0xC0 | 0xC4 | 0xCC => {
+                    self.COMPARE(mode, self.register_y);
+                }
+
+                0xC6 | 0xD6 | 0xCE | 0xDE => {
+                    self.DEC(mode);
+                }
+
+                // DEX
+                0xCA => self.DEX(),
+
+                // DEY
+                0x88 => self.DEY(),
+
+                // INC
+                0xE6 | 0xF6 | 0xEE | 0xFE => {
+                    self.INC(mode);
+                }
+
                 // INX
                 0xE8 => self.INX(),
 
+                // INY
+                0xC8 => self.INY(),
+
                 // LDA
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
-                    self.LDA(&opcode_info.mode);
+                    self.LDA(mode);
                 }
 
                 // LDX
                 0xA2 | 0xA6 | 0xB6 | 0xAE | 0xBE => {
-                    self.LDX(&opcode_info.mode);
+                    self.LDX(mode);
                 }
 
                 // LDY
                 0xA0 | 0xA4 | 0xB4 | 0xAC | 0xBC => { 
-                    self.LDY(&opcode_info.mode);
+                    self.LDY(mode);
                 }
 
                 // SEC
@@ -134,17 +174,17 @@ impl CPU {
                 
                 // STA
                 0x85 | 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 => {
-                    self.STA(&opcode_info.mode);
+                    self.STA(mode);
                 }
 
                 // STX
                 0x86 | 0x96 | 0x8E => {
-                    self.STX(&opcode_info.mode);
+                    self.STX(mode);
                 }
 
                 // STY
                 0x84 | 0x94 | 0x8C => {
-                    self.STY(&opcode_info.mode);
+                    self.STY(mode);
                 }
 
                 // TAX
@@ -293,30 +333,116 @@ impl CPU {
         self.status_flags = self.status_flags & 0b1011_1111;
     }
 
+    fn set_interrupt_disable_flag(&mut self) {
+        self.status_flags = self.status_flags | 0b0000_0100;
+    }
+    
+    fn clear_interrupt_disable_flag(&mut self) {
+        self.status_flags = self.status_flags & 0b1111_1011;
+    }
+
+    fn set_carry_flag(&mut self) {
+        self.status_flags = self.status_flags | 0b0000_0001;
+    }
+    
+    fn clear_carry_flag(&mut self) {
+        self.status_flags = self.status_flags & 0b1111_1110;
+    }
+
+    fn set_zero_flag(&mut self) {
+        self.status_flags = self.status_flags | 0b0000_0010;
+    }
+
+    fn clear_zero_flag(&mut self) {
+        self.status_flags = self.status_flags & 0b1111_1101;
+    }
+
+    fn set_negative_flag(&mut self) {
+        self.status_flags = self.status_flags | 0b1000_0000;
+    }
+
+    fn clear_negative_flag(&mut self) {
+        self.status_flags = self.status_flags & 0b0111_1111;
+    }
+
     fn zero_and_negative_flags(&mut self, result: u8) {
         // Zero flag
         if result == 0 {
-            self.status_flags = self.status_flags | 0b0000_0010;
+            self.set_zero_flag();
         } else {
-            self.status_flags = self.status_flags & 0b1111_1101;
+            self.clear_zero_flag();
         }
 
         // Negative flag
         if result & 0b1000_0000 != 0 {
-            self.status_flags = self.status_flags | 0b1000_0000;
+            self.set_negative_flag();
         } else {
-            self.status_flags = self.status_flags & 0b0111_1111;
+            self.clear_negative_flag();
         }
+    }
+
+    fn CLC(&mut self) {
+        self.clear_carry_flag();
+    }
+
+    fn CLD(&mut self) {
+        self.status_flags = self.status_flags & 0b1111_0111;
+    }
+
+    fn CLI(&mut self) {
+        self.clear_interrupt_disable_flag();
+    }
+
+    fn CLV(&mut self) {
+        self.clear_overflow_flag();
+    }
+
+    fn COMPARE(&mut self, mode: &AddressingMode, register: u8) {
+        // Register a / x / y - memory
+        let address: u16 = self.operand_address(mode);
+        let value = self.read_memory_u8(address);
+
+        if register >= value {
+            self.set_carry_flag();
+        } else {
+            self.clear_carry_flag();
+        }
+
+        self.zero_and_negative_flags(register.wrapping_sub(value));
+    }
+
+    fn DEC(&mut self, mode: &AddressingMode) {
+        let address = self.operand_address(mode);
+        let result = self.read_memory_u8(address).wrapping_sub(1);
+        self.ram[address as usize] = result;
+        self.zero_and_negative_flags(result)
+    }
+
+    fn DEX(&mut self) {
+        self.register_x = self.register_x.wrapping_sub(1);
+        self.zero_and_negative_flags(self.register_y);
+    }
+
+    fn DEY(&mut self) {
+        self.register_y = self.register_y.wrapping_sub(1);
+        self.zero_and_negative_flags(self.register_y);
+    }
+
+    fn INC(&mut self, mode: &AddressingMode) {
+        let address = self.operand_address(mode);
+        let result = self.read_memory_u8(address).wrapping_add(1);
+        self.ram[address as usize] = result;
+        self.zero_and_negative_flags(result)
     }
 
     fn INX(&mut self) {
         self.register_x = self.register_x.wrapping_add(1);
         self.zero_and_negative_flags(self.register_x);
-        if self.register_x == 0 {
-            self.set_overflow_flag();
-        } else {
-            self.clear_overflow_flag();
-        }
+    }
+
+    fn INY(&mut self) {
+        self.register_y = self.register_y.wrapping_add(1);
+        self.zero_and_negative_flags(self.register_y);
     }
 
     fn LDA(&mut self, mode: &AddressingMode) {
@@ -338,7 +464,7 @@ impl CPU {
     }
 
     fn SEC(&mut self) {
-        self.status_flags = self.status_flags | 0b0000_0001;
+        self.set_carry_flag();
     }
 
     fn SED(&mut self) {
@@ -346,7 +472,7 @@ impl CPU {
     }
 
     fn SEI(&mut self) {
-        self.status_flags = self.status_flags | 0b0000_0100;
+        self.set_interrupt_disable_flag();
     }
 
     fn STA(&mut self, mode: &AddressingMode) {

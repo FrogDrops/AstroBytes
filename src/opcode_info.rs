@@ -38,7 +38,48 @@ lazy_static! {
     pub static ref OPCODES_LIST: Vec<Opcode> = vec![
         Opcode::new("BRK", AddressingMode::Implied, 0x00, 1, 7),
 
+        Opcode::new("CLC", AddressingMode::Implied, 0x18, 1, 2),
+
+        Opcode::new("CLD", AddressingMode::Implied, 0xD8, 1, 2),
+
+        Opcode::new("CLI", AddressingMode::Implied, 0x58, 1, 2),
+
+        Opcode::new("CLV", AddressingMode::Implied, 0xB8, 1, 2),
+
+        Opcode::new("CMP", AddressingMode::Immediate, 0xC9, 2, 2),
+        Opcode::new("CMP", AddressingMode::ZeroPage, 0xC5, 2, 3),
+        Opcode::new("CMP", AddressingMode::ZeroPageX, 0xD5, 2, 3),
+        Opcode::new("CMP", AddressingMode::Absolute, 0xCD, 2, 4),
+        Opcode::new("CMP", AddressingMode::AbsoluteX, 0xDD, 3, 4), // + 1
+        Opcode::new("CMP", AddressingMode::AbsoluteY, 0xD9, 3, 4), // + 1
+        Opcode::new("CMP", AddressingMode::IndexedIndirect, 0xC1, 2, 6),
+        Opcode::new("CMP", AddressingMode::IndirectIndexed, 0xD1, 2, 5), // + 1
+
+        Opcode::new("CPX", AddressingMode::Immediate, 0xE0, 2, 2),
+        Opcode::new("CPX", AddressingMode::ZeroPage, 0xE4, 2, 3),
+        Opcode::new("CPX", AddressingMode::Absolute, 0xEC, 3, 4),
+
+        Opcode::new("CPY", AddressingMode::Immediate, 0xC0, 2, 2),
+        Opcode::new("CPY", AddressingMode::ZeroPage, 0xC4, 2, 3),
+        Opcode::new("CPY", AddressingMode::Absolute, 0xCC, 3, 4),
+
+        Opcode::new("DEC", AddressingMode::ZeroPage, 0xC6, 2, 5),
+        Opcode::new("DEC", AddressingMode::ZeroPageX, 0xD6, 2, 6),
+        Opcode::new("DEC", AddressingMode::Absolute, 0xCE, 3, 6),
+        Opcode::new("DEC", AddressingMode::AbsoluteX, 0xDE, 3, 7),
+
+        Opcode::new("DEX", AddressingMode::Implied, 0xCA, 1, 2),
+
+        Opcode::new("DEY", AddressingMode::Implied, 0x88, 1, 2),
+
+        Opcode::new("INC", AddressingMode::ZeroPage, 0xE6, 2, 5),
+        Opcode::new("INC", AddressingMode::ZeroPageX, 0xF6, 2, 6),
+        Opcode::new("INC", AddressingMode::Absolute, 0xEE, 3, 6),
+        Opcode::new("INC", AddressingMode::AbsoluteX, 0xFE, 3, 7),
+
         Opcode::new("INX", AddressingMode::Implied, 0xE8, 1, 2),
+
+        Opcode::new("INY", AddressingMode::Implied, 0xC8, 1, 2),
 
         Opcode::new("LDA", AddressingMode::Immediate, 0xA9, 2, 2),
         Opcode::new("LDA", AddressingMode::ZeroPage, 0xA5, 2, 3),
