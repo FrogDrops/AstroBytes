@@ -38,14 +38,15 @@ pub enum AddressingMode {
     Absolute,
     AbsoluteX,
     AbsoluteY,
+    Accumulator,
     Immediate,
     Implied,
     IndexedIndirect,
     IndirectIndexed,
+    Indirect,
     ZeroPage,
     ZeroPageX,
     ZeroPageY,
-    None
 }
 
 pub trait Memory {
@@ -104,16 +105,29 @@ impl CPU {
             self.program_counter += 1;
 
             match opcode {
+                0x0A => self.ASL_ACCUMULATOR(),
+
+                0x06 | 0x16 | 0x0E | 0x1E => {
+                    self.ASL(mode);
+                }
+
+                0x29 | 0x25 | 0x35 | 0x2D | 0x3D | 0x39 | 0x21 | 0x31 => {
+                    self.AND(mode);
+                }
+
                 // BRK
                 0x00 => return,
 
-                0x18 => self.CLC(),
+                // CLC
+                0x18 => self.clear_carry_flag(),
 
                 0xD8 => self.CLD(),
 
-                0x58 => self.CLI(),
-
-                0xB8 => self.CLV(),
+                // CLI
+                0x58 => self.clear_interrupt_disable_flag(),
+                
+                // CLV
+                0xB8 => self.clear_overflow_flag(),
 
                 0xC9 | 0xC5 | 0xD5 | 0xCD | 0xDD | 0xD9 | 0xC1 | 0xD1 => {
                     self.COMPARE(mode, self.register_a);
@@ -131,78 +145,76 @@ impl CPU {
                     self.DEC(mode);
                 }
 
-                // DEX
                 0xCA => self.DEX(),
 
-                // DEY
                 0x88 => self.DEY(),
 
-                // INC
+                0x49 | 0x45 | 0x55 | 0x4D | 0x5D | 0x59 | 0x41 | 0x51 => {
+                    self.EOR(mode);
+                }
+
                 0xE6 | 0xF6 | 0xEE | 0xFE => {
                     self.INC(mode);
                 }
 
-                // INX
                 0xE8 => self.INX(),
 
-                // INY
                 0xC8 => self.INY(),
 
-                // LDA
+                0x4C => self.JMP_ABSOLUTE(),
+
+                0x6C => self.JMP_INDIRECT(),
+
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
                     self.LDA(mode);
                 }
 
-                // LDX
                 0xA2 | 0xA6 | 0xB6 | 0xAE | 0xBE => {
                     self.LDX(mode);
                 }
 
-                // LDY
                 0xA0 | 0xA4 | 0xB4 | 0xAC | 0xBC => { 
                     self.LDY(mode);
                 }
 
+                // NOP
+                0xEA => self.program_counter = self.program_counter + 1,
+
+                0x09 | 0x05 | 0x15 | 0x0D | 0x1D | 0x19 | 0x01 | 0x11 => {
+                    self.ORA(mode);
+                }
+
                 // SEC
-                0x38 => self.SEC(),
+                0x38 => self.set_carry_flag(),
 
                 // SED
                 0xF8 => self.SED(),
 
                 // SEI
-                0x78 => self.SEI(),
+                0x78 => self.set_interrupt_disable_flag(),
                 
-                // STA
                 0x85 | 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 => {
                     self.STA(mode);
                 }
 
-                // STX
                 0x86 | 0x96 | 0x8E => {
                     self.STX(mode);
                 }
 
-                // STY
                 0x84 | 0x94 | 0x8C => {
                     self.STY(mode);
                 }
 
-                // TAX
                 0xAA => self.TAX(),
 
-                // TAY
                 0xA8 => self.TAY(),
                 
-                // TSX
                 0xBA => self.TSX(),
                 
-                // TXA
                 0x8A => self.TXA(),
                 
-                // TXS
                 0x9A => self.TXS(),
                 
-                // TYA
                 0x98 => self.TYA(),
                 
                 _ => todo!(),
@@ -247,7 +259,7 @@ impl CPU {
         }
     }
 
-    fn operand_address(&mut self, mode: &AddressingMode) -> u16 {
+    fn get_address(&mut self, mode: &AddressingMode) -> u16 {
         match mode {
 
             AddressingMode::Absolute => self.read_memory_u16(self.program_counter),
@@ -268,7 +280,7 @@ impl CPU {
 
             AddressingMode::Immediate => self.program_counter,
 
-            AddressingMode::Implied | AddressingMode::None => {
+            AddressingMode::Implied | AddressingMode::Accumulator | AddressingMode::Indirect => {
                 panic!("Mode does not require an argument / is not supported!");
             }
 
@@ -381,25 +393,54 @@ impl CPU {
         }
     }
 
-    fn CLC(&mut self) {
-        self.clear_carry_flag();
+    /*
+    From here on out, the functions will implement
+    each of the NES' opcodes, changing the status flag
+    as appropriate
+    */
+
+    fn AND(&mut self, mode: &AddressingMode) {
+        let address = self.get_address(mode);
+        let data = self.read_memory_u8(address);
+        self.register_a = self.register_a & data;
+
+        self.zero_and_negative_flags(self.register_a);
+    }
+
+    fn ASL_ACCUMULATOR(&mut self) {
+        if self.register_a >> 7 == 1 {
+            self.set_carry_flag();
+        } else {
+            self.clear_carry_flag();
+        }
+
+        self.register_a = self.register_a << 1;
+        self.zero_and_negative_flags(self.register_a);
+    }
+
+    fn ASL(&mut self, mode: &AddressingMode) {
+        let address = self.get_address(mode);
+        let mut data = self.read_memory_u8(address);
+
+        if data >> 7 == 1 {
+            self.set_carry_flag();
+        } else {
+            self.clear_carry_flag();
+        }
+
+        data = data << 1;
+
+        self.write_memory_u8(address, data);
+        self.zero_and_negative_flags(data);
     }
 
     fn CLD(&mut self) {
         self.status_flags = self.status_flags & 0b1111_0111;
     }
 
-    fn CLI(&mut self) {
-        self.clear_interrupt_disable_flag();
-    }
-
-    fn CLV(&mut self) {
-        self.clear_overflow_flag();
-    }
-
     fn COMPARE(&mut self, mode: &AddressingMode, register: u8) {
         // Register a / x / y - memory
-        let address: u16 = self.operand_address(mode);
+        let address: u16 = self.get_address(mode);
         let value = self.read_memory_u8(address);
 
         if register >= value {
@@ -412,7 +453,7 @@ impl CPU {
     }
 
     fn DEC(&mut self, mode: &AddressingMode) {
-        let address = self.operand_address(mode);
+        let address = self.get_address(mode);
         let result = self.read_memory_u8(address).wrapping_sub(1);
         self.ram[address as usize] = result;
         self.zero_and_negative_flags(result)
@@ -428,8 +469,15 @@ impl CPU {
         self.zero_and_negative_flags(self.register_y);
     }
 
+    fn EOR(&mut self, mode: &AddressingMode) {
+        let address = self.get_address(mode);
+        let data = self.read_memory_u8(address);
+        self.register_a = self.register_a ^ data;
+        self.zero_and_negative_flags(self.register_a);
+    }
+
     fn INC(&mut self, mode: &AddressingMode) {
-        let address = self.operand_address(mode);
+        let address = self.get_address(mode);
         let result = self.read_memory_u8(address).wrapping_add(1);
         self.ram[address as usize] = result;
         self.zero_and_negative_flags(result)
@@ -445,48 +493,72 @@ impl CPU {
         self.zero_and_negative_flags(self.register_y);
     }
 
+    fn JMP_ABSOLUTE(&mut self) {
+        let specified_address = self.read_memory_u16(self.program_counter);
+        self.program_counter = specified_address;
+    }
+
+    fn JMP_INDIRECT(&mut self) {
+        let address = self.read_memory_u16(self.program_counter);
+
+        /*
+        6502 has a bug where it doesn't correctly fetch
+        the target address if it falls on a page boundary
+        (we'll emulate that as well)
+        */
+        let indirect_reference = if address & 0x00FF == 0x00FF {
+            let lsb = self.read_memory_u8(address);
+            let msb = self.read_memory_u8(address & 0xFF00);
+
+            (msb as u16) << 8 | (lsb as u16)
+        } else {
+            self.read_memory_u16(address)
+        };
+
+        self.program_counter = indirect_reference;
+    }
+
     fn LDA(&mut self, mode: &AddressingMode) {
-        let address = self.operand_address(mode);
+        let address = self.get_address(mode);
         self.register_a = self.read_memory_u8(address);
         self.zero_and_negative_flags(self.register_a);
     }
 
     fn LDX(&mut self, mode: &AddressingMode) {
-        let address: u16 = self.operand_address(mode);
+        let address: u16 = self.get_address(mode);
         self.register_x = self.read_memory_u8(address);
         self.zero_and_negative_flags(self.register_x);
     }
 
     fn LDY(&mut self, mode: &AddressingMode) {
-        let address: u16 = self.operand_address(mode);
+        let address: u16 = self.get_address(mode);
         self.register_y = self.read_memory_u8(address);
         self.zero_and_negative_flags(self.register_y);
     }
 
-    fn SEC(&mut self) {
-        self.set_carry_flag();
+    fn ORA(&mut self, mode: &AddressingMode) {
+        let address = self.get_address(mode);
+        let data = self.read_memory_u8(address);
+        self.register_a = self.register_a | data;
+        self.zero_and_negative_flags(self.register_a);
     }
 
     fn SED(&mut self) {
         self.status_flags = self.status_flags | 0b0000_1000;
     }
 
-    fn SEI(&mut self) {
-        self.set_interrupt_disable_flag();
-    }
-
     fn STA(&mut self, mode: &AddressingMode) {
-        let address = self.operand_address(mode);
+        let address = self.get_address(mode);
         self.write_memory_u8(address, self.register_a);
     }
 
     fn STX(&mut self, mode: &AddressingMode) {
-        let address: u16 = self.operand_address(mode);
+        let address: u16 = self.get_address(mode);
         self.write_memory_u8(address, self.register_x);
     }
 
     fn STY(&mut self, mode: &AddressingMode) {
-        let address: u16 = self.operand_address(mode);
+        let address: u16 = self.get_address(mode);
         self.write_memory_u8(address, self.register_y);
     }
 

@@ -36,6 +36,21 @@ impl Opcode {
 // + 1 means that there is an extra cycle if page crossed
 lazy_static! {
     pub static ref OPCODES_LIST: Vec<Opcode> = vec![
+        Opcode::new("ASL", AddressingMode::Accumulator, 0x0A, 1, 2),
+        Opcode::new("ASL", AddressingMode::ZeroPage, 0x06, 2, 5),
+        Opcode::new("ASL", AddressingMode::ZeroPageX, 0x16, 2, 6),
+        Opcode::new("ASL", AddressingMode::Absolute, 0x0E, 3, 6),
+        Opcode::new("ASL", AddressingMode::AbsoluteX, 0x1E, 3, 7), 
+
+        Opcode::new("AND", AddressingMode::Immediate, 0x29, 2, 2),
+        Opcode::new("AND", AddressingMode::ZeroPage, 0x25, 2, 3),
+        Opcode::new("AND", AddressingMode::ZeroPageX, 0x35, 2, 4),
+        Opcode::new("AND", AddressingMode::Absolute, 0x2D, 3, 4),
+        Opcode::new("AND", AddressingMode::AbsoluteX, 0x3D, 3, 4), // + 1
+        Opcode::new("AND", AddressingMode::AbsoluteY, 0x39, 3, 4), // + 1
+        Opcode::new("AND", AddressingMode::IndexedIndirect, 0x21, 2, 6),
+        Opcode::new("AND", AddressingMode::IndirectIndexed, 0x31, 2, 5), // + 1
+
         Opcode::new("BRK", AddressingMode::Implied, 0x00, 1, 7),
 
         Opcode::new("CLC", AddressingMode::Implied, 0x18, 1, 2),
@@ -72,6 +87,15 @@ lazy_static! {
 
         Opcode::new("DEY", AddressingMode::Implied, 0x88, 1, 2),
 
+        Opcode::new("EOR", AddressingMode::Immediate, 0x49, 2, 2),
+        Opcode::new("EOR", AddressingMode::ZeroPage, 0x45, 2, 3),
+        Opcode::new("EOR", AddressingMode::ZeroPageX, 0x55, 2, 4),
+        Opcode::new("EOR", AddressingMode::Absolute, 0x4D, 3, 4),
+        Opcode::new("EOR", AddressingMode::AbsoluteX, 0x5D, 3, 4), // + 1
+        Opcode::new("EOR", AddressingMode::AbsoluteY, 0x59, 3, 4), // + 1
+        Opcode::new("EOR", AddressingMode::IndexedIndirect, 0x41, 2, 6),
+        Opcode::new("EOR", AddressingMode::IndirectIndexed, 0x51, 2, 5), // + 1
+
         Opcode::new("INC", AddressingMode::ZeroPage, 0xE6, 2, 5),
         Opcode::new("INC", AddressingMode::ZeroPageX, 0xF6, 2, 6),
         Opcode::new("INC", AddressingMode::Absolute, 0xEE, 3, 6),
@@ -80,6 +104,9 @@ lazy_static! {
         Opcode::new("INX", AddressingMode::Implied, 0xE8, 1, 2),
 
         Opcode::new("INY", AddressingMode::Implied, 0xC8, 1, 2),
+
+        Opcode::new("JMP", AddressingMode::Absolute, 0x4C, 3, 3),
+        Opcode::new("JMP", AddressingMode::Indirect, 0x6C, 3, 5),
 
         Opcode::new("LDA", AddressingMode::Immediate, 0xA9, 2, 2),
         Opcode::new("LDA", AddressingMode::ZeroPage, 0xA5, 2, 3),
@@ -101,6 +128,15 @@ lazy_static! {
         Opcode::new("LDY", AddressingMode::ZeroPageX, 0xB4, 2, 4),
         Opcode::new("LDY", AddressingMode::Absolute, 0xAC, 3, 4),
         Opcode::new("LDY", AddressingMode::AbsoluteX, 0xBC, 3, 4), // + 1
+
+        Opcode::new("ORA", AddressingMode::Immediate, 0x09, 2, 2),
+        Opcode::new("ORA", AddressingMode::ZeroPage, 0x05, 2, 3),
+        Opcode::new("ORA", AddressingMode::ZeroPageX, 0x15, 2, 4),
+        Opcode::new("ORA", AddressingMode::Absolute, 0x0D, 3, 4),
+        Opcode::new("ORA", AddressingMode::AbsoluteX, 0x1D, 3, 4), // + 1
+        Opcode::new("ORA", AddressingMode::AbsoluteY, 0x19, 3, 4), // + 1
+        Opcode::new("ORA", AddressingMode::IndexedIndirect, 0x01, 2, 6),
+        Opcode::new("ORA", AddressingMode::IndirectIndexed, 0x11, 2, 5), // + 1
 
         Opcode::new("SEC", AddressingMode::Implied, 0x38, 1, 2),
         Opcode::new("SED", AddressingMode::Implied, 0xF8, 1, 2),
