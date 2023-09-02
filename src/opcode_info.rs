@@ -36,12 +36,6 @@ impl Opcode {
 // + 1 means that there is an extra cycle if page crossed
 lazy_static! {
     pub static ref OPCODES_LIST: Vec<Opcode> = vec![
-        Opcode::new("ASL", AddressingMode::Accumulator, 0x0A, 1, 2),
-        Opcode::new("ASL", AddressingMode::ZeroPage, 0x06, 2, 5),
-        Opcode::new("ASL", AddressingMode::ZeroPageX, 0x16, 2, 6),
-        Opcode::new("ASL", AddressingMode::Absolute, 0x0E, 3, 6),
-        Opcode::new("ASL", AddressingMode::AbsoluteX, 0x1E, 3, 7), 
-
         Opcode::new("AND", AddressingMode::Immediate, 0x29, 2, 2),
         Opcode::new("AND", AddressingMode::ZeroPage, 0x25, 2, 3),
         Opcode::new("AND", AddressingMode::ZeroPageX, 0x35, 2, 4),
@@ -50,6 +44,24 @@ lazy_static! {
         Opcode::new("AND", AddressingMode::AbsoluteY, 0x39, 3, 4), // + 1
         Opcode::new("AND", AddressingMode::IndexedIndirect, 0x21, 2, 6),
         Opcode::new("AND", AddressingMode::IndirectIndexed, 0x31, 2, 5), // + 1
+
+        Opcode::new("ASL", AddressingMode::Accumulator, 0x0A, 1, 2),
+        Opcode::new("ASL", AddressingMode::ZeroPage, 0x06, 2, 5),
+        Opcode::new("ASL", AddressingMode::ZeroPageX, 0x16, 2, 6),
+        Opcode::new("ASL", AddressingMode::Absolute, 0x0E, 3, 6),
+        Opcode::new("ASL", AddressingMode::AbsoluteX, 0x1E, 3, 7), 
+
+        Opcode::new("BIT", AddressingMode::ZeroPage, 0x24, 2, 3),
+        Opcode::new("BIT", AddressingMode::Absolute, 0x2C, 3, 4),
+
+        Opcode::new("BCC", AddressingMode::Relative, 0x90, 2, 2), // + 1 if branch succeeds, + 2 if new page
+        Opcode::new("BCS", AddressingMode::Relative, 0xB0, 2, 2), // + 1 if branch succeeds, + 2 if new page
+        Opcode::new("BEQ", AddressingMode::Relative, 0xF0, 2, 2), // + 1 if branch succeeds, + 2 if new page
+        Opcode::new("BMI", AddressingMode::Relative, 0x30, 2, 2), // + 1 if branch succeeds, + 2 if new page
+        Opcode::new("BNE", AddressingMode::Relative, 0xD0, 2, 2), // + 1 if branch succeeds, + 2 if new page
+        Opcode::new("BPL", AddressingMode::Relative, 0x10, 2, 2), // + 1 if branch succeeds, + 2 if new page
+        Opcode::new("BVC", AddressingMode::Relative, 0x50, 2, 2), // + 1 if branch succeeds, + 2 if new page
+        Opcode::new("BVS", AddressingMode::Relative, 0x70, 2, 2), // + 1 if branch succeeds, + 2 if new page
 
         Opcode::new("BRK", AddressingMode::Implied, 0x00, 1, 7),
 
@@ -108,6 +120,8 @@ lazy_static! {
         Opcode::new("JMP", AddressingMode::Absolute, 0x4C, 3, 3),
         Opcode::new("JMP", AddressingMode::Indirect, 0x6C, 3, 5),
 
+        Opcode::new("JSR", AddressingMode::Absolute, 0x20, 3, 6),
+
         Opcode::new("LDA", AddressingMode::Immediate, 0xA9, 2, 2),
         Opcode::new("LDA", AddressingMode::ZeroPage, 0xA5, 2, 3),
         Opcode::new("LDA", AddressingMode::ZeroPageX, 0xB5, 2, 4),
@@ -137,6 +151,8 @@ lazy_static! {
         Opcode::new("ORA", AddressingMode::AbsoluteY, 0x19, 3, 4), // + 1
         Opcode::new("ORA", AddressingMode::IndexedIndirect, 0x01, 2, 6),
         Opcode::new("ORA", AddressingMode::IndirectIndexed, 0x11, 2, 5), // + 1
+
+        Opcode::new("RTS", AddressingMode::Implied, 0x60, 1, 6),
 
         Opcode::new("SEC", AddressingMode::Implied, 0x38, 1, 2),
         Opcode::new("SED", AddressingMode::Implied, 0xF8, 1, 2),

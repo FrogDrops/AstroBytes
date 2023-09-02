@@ -162,4 +162,35 @@ mod test {
         cpu.load_and_execute(vec![0x38, 0x00]);
         assert_eq!(cpu.status_flags, 0b0000_0001);
     }
+
+    #[test]
+    fn test_asl() {
+        let mut cpu: CPU = CPU::new();
+        cpu.load_and_execute(vec![0xA9, 0x02, 0x0A, 0x00]);
+        assert_eq!(cpu.register_a, 4);
+
+        cpu.load_and_execute(vec![0xA9, 0x02, 0x85, 0x07, 0x06, 0x07, 0x00]);
+        let result = cpu.read_memory_u8(0x07);
+        assert_eq!(result, 4);
+    }
+
+    #[test]
+    fn test_and_or_xor() {
+        let mut cpu: CPU = CPU::new();
+        cpu.load_and_execute(vec![0xA2, 0x06, 0x86, 0x07, 0xA9, 0x04, 0x25, 0x07, 0x00]);
+        assert_eq!(cpu.register_a, 4);
+
+        cpu.load_and_execute(vec![0xA9, 0x06, 0x09, 0x05, 0x00]);
+        assert_eq!(cpu.register_a, 7);
+
+        cpu.load_and_execute(vec![0xA9, 0x06, 0x49, 0x05, 0x00]);
+        assert_eq!(cpu.register_a, 3); 
+    }
+
+    #[test]
+    fn test_jmp_jsr_rts() {
+        let mut cpu: CPU = CPU::new();
+        cpu.load_and_execute(vec![0xA9, 0x0A, 0x20, 0x06, 0x80, 0x00, 0xA9, 0x01, 0x60, 0x00]);
+        assert_eq!(cpu.register_a, 1); 
+    }
 }

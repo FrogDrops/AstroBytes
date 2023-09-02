@@ -2,6 +2,8 @@
 #![allow(dead_code)]
 use crate::opcode_info::OPCODES_TABLE;
 
+const START_OF_STACK: u16 = 0x0100;
+
 /*
    For the CPU component (also known as the 2A03 chip in the case of the NES :D):
 
@@ -17,7 +19,7 @@ pub struct CPU {
     pub register_y: u8,
     pub status_flags: u8,
     pub program_counter: u16,
-    pub stack_pointer: u8,
+    pub stack_pointer: u8, 
     ram: [u8; 0xFFFF]
 }
 
@@ -31,7 +33,8 @@ pub struct CPU {
     Indirect - Absolute Address that points to address with the instructions (2 bytes)
     Indexed Indirect -  Zero page address + x points to zero page address that has the target address
     Indirect Indexed - Fetches address from zero page address, adds y to fetched address to get address that contains target address
-    
+    Relative - 8-bit relative offset is added to program counter, used for branches
+
     Some can be modified with optional offsets from the x and y registers
     */    
 pub enum AddressingMode {
@@ -44,6 +47,7 @@ pub enum AddressingMode {
     IndexedIndirect,
     IndirectIndexed,
     Indirect,
+    Relative,
     ZeroPage,
     ZeroPageX,
     ZeroPageY,
@@ -89,7 +93,7 @@ impl CPU {
             register_y: 0,
             status_flags: 0,
             program_counter: 0,
-            stack_pointer: 0xFF,
+            stack_pointer: 0xFF, // Memory for stack pointer is from 0x0100 - 0x01FF
             ram: [0; 0xFFFF]
         }
     }
@@ -115,6 +119,34 @@ impl CPU {
                     self.AND(mode);
                 }
 
+                0x24 | 0x2C => {
+                    self.BIT(mode);
+                }
+
+                // BCC
+                0x90 => self.BRANCH(self.status_flags & 0b0000_0001 == 0b0000_0000),
+
+                // BCS 
+                0xB0 => self.BRANCH(self.status_flags & 0b0000_0001 == 0b0000_0001),
+
+                // BEQ 
+                0xF0 => self.BRANCH(self.status_flags & 0b0000_0010 == 0b0000_0010),
+                
+                // BMI 
+                0x30 => self.BRANCH(self.status_flags & 0b1000_0000 == 0b1000_0000),
+
+                // BNE 
+                0xD0 => self.BRANCH(self.status_flags & 0b0000_0010 == 0b0000_0000),
+                
+                // BPL
+                0x10 => self.BRANCH(self.status_flags & 0b1000_0000 == 0b0000_0000),
+                
+                // BVC 
+                0x50 => self.BRANCH(self.status_flags & 0b0100_0000 == 0b0000_0000),
+                
+                // BVS 
+                0x70 => self.BRANCH(self.status_flags & 0b0100_0000 == 0b0100_0000),
+                
                 // BRK
                 0x00 => return,
 
@@ -165,6 +197,8 @@ impl CPU {
 
                 0x6C => self.JMP_INDIRECT(),
 
+                0x20 => self.JSR(),
+
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
                     self.LDA(mode);
                 }
@@ -183,6 +217,8 @@ impl CPU {
                 0x09 | 0x05 | 0x15 | 0x0D | 0x1D | 0x19 | 0x01 | 0x11 => {
                     self.ORA(mode);
                 }
+
+                0x60 => self.RTS(),
 
                 // SEC
                 0x38 => self.set_carry_flag(),
@@ -259,6 +295,38 @@ impl CPU {
         }
     }
 
+    /*
+    Since this is a downward growing stack, the stack pointer always points 
+    to the next empty location in memory
+    */
+
+    pub fn pop_stack_u8(&mut self) -> u8 {
+        // Start of the stack is at 0x01FF, so popping an item brings it closer to this address
+        self.stack_pointer = self.stack_pointer.wrapping_add(1);
+        self.read_memory_u8(START_OF_STACK as u16 + self.stack_pointer as u16)
+    }
+
+    pub fn push_stack_u8(&mut self, data: u8) {
+        // Similarly, pushing an item brings it further away from 0x01FF
+        self.write_memory_u8(START_OF_STACK as u16 + self.stack_pointer as u16, data);
+        self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+    }
+
+    pub fn pop_stack_u16(&mut self) -> u16 {
+        let lsb = self.pop_stack_u8() as u16;
+        let msb: u16 = self.pop_stack_u8() as u16;
+
+        (msb << 8) | lsb
+    }
+
+    pub fn push_stack_u16(&mut self, data: u16) {
+        let msb = (data >> 8) as u8;
+        let lsb = (data & 0xFF) as u8;
+
+        self.push_stack_u8(msb);
+        self.push_stack_u8(lsb);
+    }
+
     fn get_address(&mut self, mode: &AddressingMode) -> u16 {
         match mode {
 
@@ -278,7 +346,7 @@ impl CPU {
                 address
             }
 
-            AddressingMode::Immediate => self.program_counter,
+            AddressingMode::Immediate | AddressingMode::Relative => self.program_counter,
 
             AddressingMode::Implied | AddressingMode::Accumulator | AddressingMode::Indirect => {
                 panic!("Mode does not require an argument / is not supported!");
@@ -336,6 +404,8 @@ impl CPU {
     N: Negative Flag (MSB)
 
     N V B U D I Z C
+
+    6502 uses zero-based index (0 to 7 bits)
     */
     fn set_overflow_flag(&mut self) {
         self.status_flags = self.status_flags | 0b0100_0000;
@@ -434,6 +504,37 @@ impl CPU {
         self.zero_and_negative_flags(data);
     }
 
+    // Works like AND opcode, except it doesn't change register a
+    fn BIT(&mut self, mode: &AddressingMode) {
+        let address = self.get_address(mode);
+        let data = self.read_memory_u8(address);
+        // Bits 7 and 6 of the value from memory are copied into the N and V flags
+        if (data & 0b1000_0000) >> 7 == 1 {
+            self.set_negative_flag();
+        } else {
+            self.clear_negative_flag();
+        }
+
+        if (data & 0b0100_0000) >> 6 == 1 {
+            self.set_overflow_flag();
+        } else {
+            self.clear_overflow_flag()
+        }
+
+        let result = self.register_a & data;
+
+        self.zero_and_negative_flags(result);
+    }
+
+    fn BRANCH(&mut self, condition: bool) {
+        // We branch starting from the instruction after the branch opcode
+        if condition {
+            let offset = self.read_memory_u8(self.program_counter) as i8;
+            let jump_address = self.program_counter.wrapping_add(1).wrapping_add(offset as u16);
+            self.program_counter = jump_address;
+        }
+    }
+
     fn CLD(&mut self) {
         self.status_flags = self.status_flags & 0b1111_0111;
     }
@@ -518,6 +619,12 @@ impl CPU {
         self.program_counter = indirect_reference;
     }
 
+    fn JSR(&mut self) {
+        self.push_stack_u16(self.program_counter - 1); // Location of JSR opcode
+        let target_address = self.read_memory_u16(self.program_counter);
+        self.program_counter = target_address - 2; // JSR byte length is 3 (counter jumps forward by 2), so it must be negated
+    }
+
     fn LDA(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         self.register_a = self.read_memory_u8(address);
@@ -541,6 +648,11 @@ impl CPU {
         let data = self.read_memory_u8(address);
         self.register_a = self.register_a | data;
         self.zero_and_negative_flags(self.register_a);
+    }
+
+    fn RTS(&mut self) {
+        self.program_counter = self.pop_stack_u16() + 3; 
+        // We have to jump past JSR and the absolute address for the next instruction
     }
 
     fn SED(&mut self) {
