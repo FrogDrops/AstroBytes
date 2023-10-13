@@ -36,6 +36,15 @@ impl Opcode {
 // + 1 means that there is an extra cycle if page crossed
 lazy_static! {
     pub static ref OPCODES_LIST: Vec<Opcode> = vec![
+        Opcode::new("ADC", AddressingMode::Immediate, 0x69, 2, 2),
+        Opcode::new("ADC", AddressingMode::ZeroPage, 0x65, 2, 3),
+        Opcode::new("ADC", AddressingMode::ZeroPageX, 0x75, 2, 4),
+        Opcode::new("ADC", AddressingMode::Absolute, 0x6D, 3, 4),
+        Opcode::new("ADC", AddressingMode::AbsoluteX, 0x7D, 3, 4), // + 1
+        Opcode::new("ADC", AddressingMode::AbsoluteY, 0x79, 3, 4), // + 1
+        Opcode::new("ADC", AddressingMode::IndexedIndirect, 0x61, 2, 6),
+        Opcode::new("ADC", AddressingMode::IndirectIndexed, 0x71, 2, 5), // + 1
+
         Opcode::new("AND", AddressingMode::Immediate, 0x29, 2, 2),
         Opcode::new("AND", AddressingMode::ZeroPage, 0x25, 2, 3),
         Opcode::new("AND", AddressingMode::ZeroPageX, 0x35, 2, 4),
@@ -66,11 +75,8 @@ lazy_static! {
         Opcode::new("BRK", AddressingMode::Implied, 0x00, 1, 7),
 
         Opcode::new("CLC", AddressingMode::Implied, 0x18, 1, 2),
-
         Opcode::new("CLD", AddressingMode::Implied, 0xD8, 1, 2),
-
         Opcode::new("CLI", AddressingMode::Implied, 0x58, 1, 2),
-
         Opcode::new("CLV", AddressingMode::Implied, 0xB8, 1, 2),
 
         Opcode::new("CMP", AddressingMode::Immediate, 0xC9, 2, 2),
@@ -143,6 +149,12 @@ lazy_static! {
         Opcode::new("LDY", AddressingMode::Absolute, 0xAC, 3, 4),
         Opcode::new("LDY", AddressingMode::AbsoluteX, 0xBC, 3, 4), // + 1
 
+        Opcode::new("LSR", AddressingMode::Accumulator, 0x4A, 1, 2),
+        Opcode::new("LSR", AddressingMode::ZeroPage, 0x46, 2, 5),
+        Opcode::new("LSR", AddressingMode::ZeroPageX, 0x56, 2, 6),
+        Opcode::new("LSR", AddressingMode::Absolute, 0x4E, 3, 6),
+        Opcode::new("LSR", AddressingMode::AbsoluteX, 0x5E, 3, 7),
+
         Opcode::new("ORA", AddressingMode::Immediate, 0x09, 2, 2),
         Opcode::new("ORA", AddressingMode::ZeroPage, 0x05, 2, 3),
         Opcode::new("ORA", AddressingMode::ZeroPageX, 0x15, 2, 4),
@@ -172,6 +184,15 @@ lazy_static! {
         Opcode::new("RTI", AddressingMode::Implied, 0x40, 1, 6),
 
         Opcode::new("RTS", AddressingMode::Implied, 0x60, 1, 6),
+
+        Opcode::new("SBC", AddressingMode::Immediate, 0xE9, 2, 2),
+        Opcode::new("SBC", AddressingMode::ZeroPage, 0xE5, 2, 3),
+        Opcode::new("SBC", AddressingMode::ZeroPageX, 0xF5, 2, 4),
+        Opcode::new("SBC", AddressingMode::Absolute, 0xED, 3, 4),
+        Opcode::new("SBC", AddressingMode::AbsoluteX, 0xFD, 3, 4), // + 1
+        Opcode::new("SBC", AddressingMode::AbsoluteY, 0xF9, 3, 4), // + 1
+        Opcode::new("SBC", AddressingMode::IndexedIndirect, 0xE1, 2, 6),
+        Opcode::new("SBC", AddressingMode::IndirectIndexed, 0xF1, 2, 5), // + 1
 
         Opcode::new("SEC", AddressingMode::Implied, 0x38, 1, 2),
         Opcode::new("SED", AddressingMode::Implied, 0xF8, 1, 2),

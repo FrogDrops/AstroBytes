@@ -109,6 +109,13 @@ impl CPU {
             self.program_counter += 1;
 
             match opcode {
+
+                0x69 | 0x65 | 0x75 | 0x6D | 0x7D | 0x79 | 0x61 | 0x71 => {
+                    let address = self.get_address(mode);
+                    let data = self.read_memory_u8(address);
+                    self.ADC(data);
+                }
+
                 0x0A => self.ASL_ACCUMULATOR(),
 
                 0x06 | 0x16 | 0x0E | 0x1E => {
@@ -211,6 +218,12 @@ impl CPU {
                     self.LDY(mode);
                 }
 
+                0x4A => self.LSR_ACCUMULATOR(),
+
+                0x46 | 0x56 | 0x4E | 0x5E => {
+                    self.LSR(mode);
+                }
+
                 // NOP
                 0xEA => self.program_counter = self.program_counter + 1,
 
@@ -231,6 +244,14 @@ impl CPU {
                 0x26 | 0x36 | 0x2E | 0x3E => {
                     self.ROL(mode);
                 }
+
+                0x6A => self.ROR_ACCUMULATOR(),
+
+                0x66 | 0x76 | 0x6E | 0x7E => {
+                    self.ROR(mode);
+                }
+
+                0x40 => self.RTI(),
 
                 0x60 => self.RTS(),
 
@@ -408,13 +429,13 @@ impl CPU {
     /* 
     The Status Flags:
 
-    C: Carry Flag (LSB) 
+    C: Carry Flag (LSB) (Unsigned overflow)
     Z: Zero Flag 
     I: Interrupt Disable
-    D: Decimal Mode Flag
+    D: Decimal Mode Flag (Not used)
     U: Unused Flag
     B: Break Flag
-    V: Overflow Flag
+    V: Overflow Flag (Signed overflow)
     N: Negative Flag (MSB)
 
     N V B U D I Z C
@@ -492,6 +513,31 @@ impl CPU {
     each of the NES' opcodes, changing the status flags
     as appropriate (*sigh*, yes, even the B-flag)
     */
+
+    fn ADC(&mut self, data: u8) {
+        let carry = self.status_flags & 0b0000_0001;
+        let result = self.register_a as u16 + data as u16 + carry as u16;
+        
+        // Detect unsigned overflow from the addition
+        // And changing the carry flag accordingly 
+        // ADC doesn't normally clear carry, but it saves headaches
+        if result > 0xFF {
+            self.set_carry_flag();
+        } else {
+            self.clear_carry_flag();
+        }
+
+        // Computing signed overflow with this formula:
+        // (Memory ^ result) & (accumulator ^ result) & 0x80 is nonzero
+        if (data ^ result as u8) & (self.register_a ^ result as u8) & 0x80 != 0 {
+            self.set_overflow_flag();
+        } else {
+            self.clear_overflow_flag();
+        }
+
+        self.register_a = result as u8;
+        self.zero_and_negative_flags(self.register_a);
+    }
 
     fn AND(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
@@ -667,6 +713,41 @@ impl CPU {
         self.zero_and_negative_flags(self.register_y);
     }
 
+    fn LSR_ACCUMULATOR(&mut self) {
+        // Data shifted to the right. Old bit 0 is carry flag
+        // New bit 7 is set to 0
+        let old_bit_zero =  self.register_a & 0b0000_0001;
+
+        self.register_a = (self.register_a >> 1) & 0b0111_1111;
+
+        if old_bit_zero == 0 {
+            self.clear_carry_flag();
+        } else {
+            self.set_carry_flag();
+        }
+
+        self.zero_and_negative_flags(self.register_a);
+    }
+
+    fn LSR(&mut self, mode: &AddressingMode) {
+        // Data shifted to the right. Old bit 0 is carry flag
+        // New bit 7 is set to 0
+        let address = self.get_address(mode);
+        let mut data = self.read_memory_u8(address);
+        let old_bit_zero =  data & 0b0000_0001;
+
+        data = (data >> 1) & 0b0111_1111;
+
+        if old_bit_zero == 0 {
+            self.clear_carry_flag();
+        } else {
+            self.set_carry_flag();
+        }
+
+        self.write_memory_u8(address, data);
+        self.zero_and_negative_flags(data);
+    }
+
     fn ORA(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         let data = self.read_memory_u8(address);
@@ -744,16 +825,77 @@ impl CPU {
         self.write_memory_u8(address, data);
     }
 
+    fn ROR_ACCUMULATOR(&mut self) {
+        let old_bit_seven = (self.register_a & 0b1000_0000) >> 7;
+        let current_carry_flag = self.status_flags & 0b0000_0001;
+
+        self.register_a = self.register_a >> 1;
+
+        // Bit 0 is filled with the current carry flag value
+        // Old bit 7 becomes new carry flag value
+        if current_carry_flag == 0 {
+            self.register_a = self.register_a & 0b1111_1110;
+        } else {
+            self.register_a = self.register_a | 0b0000_0001;
+        }
+
+        if old_bit_seven == 0 {
+            self.clear_carry_flag();
+        } else {
+            self.set_carry_flag();
+        }
+
+        self.zero_and_negative_flags(self.register_a);
+    }
+
+    fn ROR(&mut self, mode: &AddressingMode) {
+        let address = self.get_address(&mode);
+        let mut data = self.read_memory_u8(address);
+        let old_bit_seven = (data & 0b1000_0000) >> 7;
+        let current_carry_flag = self.status_flags & 0b0000_0001;
+
+        data = data >> 1;
+
+        // Bit 0 is filled with the current carry flag value
+        // Old bit 7 becomes new carry flag value
+        if current_carry_flag == 0 {
+            data = data & 0b1111_1110;
+        } else {
+            data = data | 0b0000_0001;
+        }
+
+        if old_bit_seven == 0 {
+            self.clear_carry_flag();
+        } else {
+            self.set_carry_flag();
+        }
+
+        self.zero_and_negative_flags(data);
+        self.write_memory_u8(address, data);
+    }
 
     fn RTI(&mut self) {
+        // Pulls flags followed by counter
+        self.status_flags = self.pop_stack_u8();
+        self.program_counter = self.pop_stack_u16();
+
         // Break discarded 
         self.clear_break_flag();
     }
 
     fn RTS(&mut self) {
-        self.program_counter = self.pop_stack_u16() + 3; 
         // We have to jump past JSR and the absolute address for the next instruction
+        self.program_counter = self.pop_stack_u16() + 3; 
     }
+
+    fn SBC(&mut self, mode: &AddressingMode) {
+        // We simply take the two's complement
+        // And call our ADC opcode (the borrow value will be added there)
+        let address = self.get_address(&mode);
+        let mut data = self.read_memory_u8(address);
+        data = data.wrapping_neg();
+        self.ADC(data);
+    }   
 
     fn SED(&mut self) {
         self.status_flags = self.status_flags | 0b0000_1000;
