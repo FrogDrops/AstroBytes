@@ -91,7 +91,7 @@ impl CPU {
             register_a: 0,
             register_x: 0,
             register_y: 0,
-            status_flags: 0,
+            status_flags: 0b0001_0000,
             program_counter: 0,
             stack_pointer: 0xFF, // Memory for stack pointer is from 0x0100 - 0x01FF
             ram: [0; 0xFFFF]
@@ -146,7 +146,7 @@ impl CPU {
                 
                 // BVS 
                 0x70 => self.BRANCH(self.status_flags & 0b0100_0000 == 0b0100_0000),
-                
+
                 // BRK
                 0x00 => return,
 
@@ -218,6 +218,20 @@ impl CPU {
                     self.ORA(mode);
                 }
 
+                0x48 => self.PHA(),
+
+                0x08 => self.PHP(),
+
+                0x68 => self.PLA(),
+
+                0x28 => self.PLP(),
+
+                0x2A => self.ROL_ACCUMULATOR(),
+
+                0x26 | 0x36 | 0x2E | 0x3E => {
+                    self.ROL(mode);
+                }
+
                 0x60 => self.RTS(),
 
                 // SEC
@@ -278,7 +292,7 @@ impl CPU {
         self.register_a = 0;
         self.register_x = 0;
         self.register_y = 0;
-        self.status_flags = 0;
+        self.status_flags = 0b0001_0000;
         self.program_counter = self.read_memory_u16(0xFFFC);
     }
 
@@ -399,13 +413,15 @@ impl CPU {
     I: Interrupt Disable
     D: Decimal Mode Flag
     U: Unused Flag
-    B: Break Command
+    B: Break Flag
     V: Overflow Flag
     N: Negative Flag (MSB)
 
     N V B U D I Z C
 
     6502 uses zero-based index (0 to 7 bits)
+
+    The unused flag is always set as 1
     */
     fn set_overflow_flag(&mut self) {
         self.status_flags = self.status_flags | 0b0100_0000;
@@ -439,6 +455,14 @@ impl CPU {
         self.status_flags = self.status_flags & 0b1111_1101;
     }
 
+    fn set_break_flag(&mut self) {
+        self.status_flags = self.status_flags | 0b0010_0000;
+    }
+
+    fn clear_break_flag(&mut self) {
+        self.status_flags = self.status_flags & 0b1101_1111;
+    }
+
     fn set_negative_flag(&mut self) {
         self.status_flags = self.status_flags | 0b1000_0000;
     }
@@ -465,8 +489,8 @@ impl CPU {
 
     /*
     From here on out, the functions will implement
-    each of the NES' opcodes, changing the status flag
-    as appropriate
+    each of the NES' opcodes, changing the status flags
+    as appropriate (*sigh*, yes, even the B-flag)
     */
 
     fn AND(&mut self, mode: &AddressingMode) {
@@ -648,6 +672,82 @@ impl CPU {
         let data = self.read_memory_u8(address);
         self.register_a = self.register_a | data;
         self.zero_and_negative_flags(self.register_a);
+    }
+
+    fn PHA(&mut self) {
+        self.push_stack_u8(self.register_a);
+    }
+
+    fn PHP(&mut self) {
+        // Break is pushed as 1
+        self.set_break_flag();
+        self.push_stack_u8(self.status_flags);
+    }
+
+    fn PLA(&mut self) {
+        self.register_a = self.pop_stack_u8();
+        self.zero_and_negative_flags(self.register_a);
+    }
+
+    fn PLP(&mut self) {
+        // Break discarded
+        self.status_flags = self.pop_stack_u8();
+        self.clear_break_flag();
+    }
+
+    fn ROL_ACCUMULATOR(&mut self) {
+        let old_bit_seven = (self.register_a & 0b1000_0000) >> 7;
+        let current_carry_flag = self.status_flags & 0b0000_0001;
+
+        self.register_a = self.register_a << 1;
+
+        // Bit 0 is filled with the current carry flag value
+        // Old bit 7 becomes new carry flag value
+        if current_carry_flag == 0 {
+            self.register_a = self.register_a & 0b1111_1110;
+        } else {
+            self.register_a = self.register_a | 0b0000_0001;
+        }
+
+        if old_bit_seven == 0 {
+            self.clear_carry_flag();
+        } else {
+            self.set_carry_flag();
+        }
+
+        self.zero_and_negative_flags(self.register_a);
+    }
+
+    fn ROL(&mut self, mode: &AddressingMode) {
+        let address = self.get_address(mode);
+        let mut data = self.read_memory_u8(address);
+        let old_bit_seven = (data & 0b1000_0000) >> 7;
+        let current_carry_flag = self.status_flags & 0b0000_0001;
+
+        data = data << 1;
+
+        // Bit 0 is filled with the current carry flag value
+        // Old bit 7 becomes new carry flag value
+        if current_carry_flag == 0 {
+            data = data & 0b1111_1110;
+        } else {
+            data = data | 0b0000_0001;
+        }
+
+        if old_bit_seven == 0 {
+            self.clear_carry_flag();
+        } else {
+            self.set_carry_flag();
+        }
+
+        self.zero_and_negative_flags(data);
+        self.write_memory_u8(address, data);
+    }
+
+
+    fn RTI(&mut self) {
+        // Break discarded 
+        self.clear_break_flag();
     }
 
     fn RTS(&mut self) {

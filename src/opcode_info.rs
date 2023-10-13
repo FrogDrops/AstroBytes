@@ -152,6 +152,25 @@ lazy_static! {
         Opcode::new("ORA", AddressingMode::IndexedIndirect, 0x01, 2, 6),
         Opcode::new("ORA", AddressingMode::IndirectIndexed, 0x11, 2, 5), // + 1
 
+        Opcode::new("PHA", AddressingMode::Implied, 0x48, 1, 3), 
+        Opcode::new("PHP", AddressingMode::Implied, 0x08, 1, 3), 
+        Opcode::new("PLA", AddressingMode::Implied, 0x68, 1, 4), 
+        Opcode::new("PLP", AddressingMode::Implied, 0x28, 1, 4), 
+
+        Opcode::new("ROL", AddressingMode::Accumulator, 0x2A, 1, 2),
+        Opcode::new("ROL", AddressingMode::ZeroPage, 0x26, 2, 5),
+        Opcode::new("ROL", AddressingMode::ZeroPageX, 0x36, 2, 6),
+        Opcode::new("ROL", AddressingMode::Absolute, 0x2E, 3, 6),
+        Opcode::new("ROL", AddressingMode::AbsoluteX, 0x3E, 3, 7),
+
+        Opcode::new("ROR", AddressingMode::Accumulator, 0x6A, 1, 2),
+        Opcode::new("ROR", AddressingMode::ZeroPage, 0x66, 2, 5),
+        Opcode::new("ROR", AddressingMode::ZeroPageX, 0x76, 2, 6),
+        Opcode::new("ROR", AddressingMode::Absolute, 0x6E, 3, 6),
+        Opcode::new("ROR", AddressingMode::AbsoluteX, 0x7E, 3, 7),
+
+        Opcode::new("RTI", AddressingMode::Implied, 0x40, 1, 6),
+
         Opcode::new("RTS", AddressingMode::Implied, 0x60, 1, 6),
 
         Opcode::new("SEC", AddressingMode::Implied, 0x38, 1, 2),
