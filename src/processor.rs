@@ -1,5 +1,7 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+use core::panic;
+
 use crate::opcode_info::OPCODES_TABLE;
 
 const START_OF_STACK: u16 = 0x0100;
@@ -91,7 +93,7 @@ impl CPU {
             register_a: 0,
             register_x: 0,
             register_y: 0,
-            status_flags: 0b0001_0000,
+            status_flags: 0b0000_0000,
             program_counter: 0,
             stack_pointer: 0xFF, // Memory for stack pointer is from 0x0100 - 0x01FF
             ram: [0; 0xFFFF]
@@ -255,6 +257,10 @@ impl CPU {
 
                 0x60 => self.RTS(),
 
+                0xE9 | 0xE5 | 0xF5 | 0xED | 0xFD | 0xF9 | 0xE1 | 0xF1 => {
+                    self.SBC(mode);
+                }
+
                 // SEC
                 0x38 => self.set_carry_flag(),
 
@@ -288,7 +294,7 @@ impl CPU {
                 
                 0x98 => self.TYA(),
                 
-                _ => todo!(),
+                _ => panic!("Invalid Opcode!"),
             }
 
             self.update_program_counter(&opcode);
@@ -313,7 +319,7 @@ impl CPU {
         self.register_a = 0;
         self.register_x = 0;
         self.register_y = 0;
-        self.status_flags = 0b0001_0000;
+        self.status_flags = 0b0000_0000;
         self.program_counter = self.read_memory_u16(0xFFFC);
     }
 
@@ -893,7 +899,8 @@ impl CPU {
         // And call our ADC opcode (the borrow value will be added there)
         let address = self.get_address(&mode);
         let mut data = self.read_memory_u8(address);
-        data = data.wrapping_neg();
+        data = !data.wrapping_sub(1);
+
         self.ADC(data);
     }   
 

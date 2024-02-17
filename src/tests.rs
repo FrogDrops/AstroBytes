@@ -193,4 +193,51 @@ mod test {
         cpu.load_and_execute(vec![0xA9, 0x0A, 0x20, 0x06, 0x80, 0x00, 0xA9, 0x01, 0x60, 0x00]);
         assert_eq!(cpu.register_a, 1); 
     }
+
+    #[test]
+    fn test_pha_pla_php_plp() {
+        let mut cpu: CPU = CPU::new();
+        cpu.load_and_execute(vec![0xA9, 0x42, 0x48, 0x68, 0x00]);
+        assert_eq!(cpu.register_a, 0x42);
+
+        cpu.load_and_execute(vec![0x08, 0x38, 0x28, 0x00]);
+        assert_eq!(cpu.status_flags, 0b0000_0000);
+    }
+
+    #[test]
+    fn test_rol_ror() {
+        let mut cpu: CPU = CPU::new();
+        cpu.load_and_execute(vec![0xA9, 0x85, 0x2A, 0x00]);
+        assert_eq!(cpu.register_a, 0x0A);
+
+        cpu.load_and_execute(vec![0xA9, 0x12, 0x2A, 0x00]);
+        assert_eq!(cpu.register_a, 0x24);
+
+        cpu.load_and_execute(vec![0xA9, 0x04, 0x6A, 0x00]);
+        assert_eq!(cpu.register_a, 0x02);
+
+        cpu.load_and_execute(vec![0xA9, 0x06, 0x6A, 0x00]);
+        assert_eq!(cpu.register_a, 0x02);
+    }
+
+    #[test]
+    fn test_adc_sbc() {
+
+        let mut cpu: CPU = CPU::new();
+        cpu.load_and_execute(vec![0xA9, 0x05, 0x69, 0x0A, 0x00]);
+        assert_eq!(cpu.register_a, 0x0F);
+
+        cpu.load_and_execute(vec![0xA9, 0x81, 0x38, 0x69, 0x7F, 0x00]);
+        assert_eq!(cpu.register_a, 0x01);
+
+        cpu.load_and_execute(vec![0xA9, 0x0A, 0xE9, 0x03, 0x00]);
+        assert_eq!(cpu.register_a, 0x07);
+
+        cpu.load_and_execute(vec![0xA9, 0x03, 0x38, 0xE9, 0x05, 0x00]);
+        assert_eq!(cpu.register_a, 0xFD);
+    }
+
+
+
+    
 }
