@@ -533,15 +533,17 @@ impl CPU {
             self.clear_carry_flag();
         }
 
+        let sum = result as u8;
+
         // Computing signed overflow with this formula:
         // (Memory ^ result) & (accumulator ^ result) & 0x80 is nonzero
-        if (data ^ result as u8) & (self.register_a ^ result as u8) & 0x80 != 0 {
+        if (data ^ sum) & (self.register_a ^ sum) & 0x80 != 0 {
             self.set_overflow_flag();
         } else {
             self.clear_overflow_flag();
         }
 
-        self.register_a = result as u8;
+        self.register_a = sum;
         self.zero_and_negative_flags(self.register_a);
     }
 
@@ -898,10 +900,10 @@ impl CPU {
         // We simply take the two's complement
         // And call our ADC opcode (the borrow value will be added there)
         let address = self.get_address(&mode);
-        let mut data = self.read_memory_u8(address);
-        data = !data.wrapping_sub(1);
+        let data = self.read_memory_u8(address);
 
-        self.ADC(data);
+        // A = A + NOT M + C (carry is added in ADC)
+        self.ADC((data as i8).wrapping_neg() as u8);
     }   
 
     fn SED(&mut self) {

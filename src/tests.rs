@@ -222,7 +222,6 @@ mod test {
 
     #[test]
     fn test_adc_sbc() {
-
         let mut cpu: CPU = CPU::new();
         cpu.load_and_execute(vec![0xA9, 0x05, 0x69, 0x0A, 0x00]);
         assert_eq!(cpu.register_a, 0x0F);
@@ -230,14 +229,19 @@ mod test {
         cpu.load_and_execute(vec![0xA9, 0x81, 0x38, 0x69, 0x7F, 0x00]);
         assert_eq!(cpu.register_a, 0x01);
 
-        cpu.load_and_execute(vec![0xA9, 0x0A, 0xE9, 0x03, 0x00]);
+        cpu.load_and_execute(vec![0xA9, 0x0A, 0xE9, 0x03, 0x00]); // 10 - 3
         assert_eq!(cpu.register_a, 0x07);
 
-        cpu.load_and_execute(vec![0xA9, 0x03, 0x38, 0xE9, 0x05, 0x00]);
-        assert_eq!(cpu.register_a, 0xFD);
+        cpu.load_and_execute(vec![0xA9, 0x05, 0x38, 0xE9, 0x0A, 0x00]); // 5 - 10 (with carry)
+        assert_eq!(cpu.register_a, 0xFC); 
+
+        cpu.load_and_execute(vec![0xA9, 0x05, 0xE9, 0x0A, 0x00]); // 5 - 10 (without carry)
+        assert_eq!(cpu.register_a, 0xFB); 
+
+        cpu.load_and_execute(vec![0xA9, 0x0A, 0x38, 0xE9, 0x05, 0x00]); // 10 - 5 (with carry)
+        assert_eq!(cpu.register_a, 0x06); 
+
+        cpu.load_and_execute(vec![0xA9, 0x0A, 0xE9, 0x05, 0x00]); // 10 - 5 without carry
+        assert_eq!(cpu.register_a, 0x05); 
     }
-
-
-
-    
 }
