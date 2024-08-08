@@ -87,7 +87,7 @@ impl Memory for CPU {
     }
 }
 
-impl CPU {
+impl CPU { 
     pub fn new() -> Self {
         CPU {
             register_a: 0,
@@ -100,18 +100,29 @@ impl CPU {
         }
     }
 
-    // Run instructions in the program ROM section
     pub fn execute(&mut self) {
+        self.execute_callback(|_| {});
+    }
+
+    // Run instructions in the program ROM section
+    pub fn execute_callback<F>(&mut self, mut callback: F) where F: FnMut(&mut CPU), {
 
         loop {
+            callback(self);
+
             let opcode = self.read_memory_u8(self.program_counter);
-            let opcode_info = OPCODES_TABLE.get(&opcode).unwrap();
+            let opcode_info = match OPCODES_TABLE.get(&opcode) {
+                Some(info) => info,
+                None => {
+                    panic!("Error opcode is: {:X}", opcode);
+                }
+            };
             let mode = &opcode_info.mode;
 
             self.program_counter += 1;
 
             match opcode {
-
+ 
                 0x69 | 0x65 | 0x75 | 0x6D | 0x7D | 0x79 | 0x61 | 0x71 => {
                     let address = self.get_address(mode);
                     let data = self.read_memory_u8(address);
@@ -227,7 +238,7 @@ impl CPU {
                 }
 
                 // NOP
-                0xEA => self.program_counter = self.program_counter + 1,
+                0xEA | 0x80 | 0x04 | 0x44 | 0x64 => self.program_counter = self.program_counter + 1,
 
                 0x09 | 0x05 | 0x15 | 0x0D | 0x1D | 0x19 | 0x01 | 0x11 => {
                     self.ORA(mode);
@@ -303,8 +314,8 @@ impl CPU {
 
     // Load into program ROM
     pub fn load_program(&mut self, program: &Vec<u8>) {
-        self.ram[0x8000..(0x8000 + program.len())].copy_from_slice(&program[..]);
-        self.write_memory_u16(0xFFFC, 0x8000);
+        self.ram[0x0600..(0x0600 + program.len())].copy_from_slice(&program[..]);
+        self.write_memory_u16(0xFFFC, 0x0600);
     }
 
     pub fn load_and_execute(&mut self, program: Vec<u8>) {
