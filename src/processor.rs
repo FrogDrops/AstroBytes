@@ -192,6 +192,10 @@ impl CPU {
                 0xC0 | 0xC4 | 0xCC => {
                     self.COMPARE(mode, self.register_y);
                 }
+                
+                0xC7 | 0xD7 | 0xCF | 0xDF | 0xDB | 0xC3 | 0xD3 => {
+                    self.DCP(mode);
+                }
 
                 0xC6 | 0xD6 | 0xCE | 0xDE => {
                     self.DEC(mode);
@@ -342,7 +346,7 @@ impl CPU {
     }
 
     pub fn clear_program(&mut self, program: &Vec<u8>) {
-        for i in 0x8000..= 0x8000 + program.len() {
+        for i in 0x0600..= 0x8000 + program.len() {
             self.ram[i] = 0;
         }
     }
@@ -642,6 +646,12 @@ impl CPU {
         self.zero_and_negative_flags(register.wrapping_sub(value));
     }
 
+    // DEC + CMP opcode
+    fn DCP(&mut self, mode: &AddressingMode) {
+        self.DEC(&mode);
+        self.COMPARE(&mode, self.register_a);
+    }
+
     fn DEC(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         let result = self.read_memory_u8(address).wrapping_sub(1);
@@ -709,7 +719,7 @@ impl CPU {
     }
 
     fn JSR(&mut self) {
-        self.push_stack_u16(self.program_counter - 1); // Location of JSR opcode
+        self.push_stack_u16(self.program_counter + 2); // Location of JSR opcode
         let target_address = self.read_memory_u16(self.program_counter);
         self.program_counter = target_address - 2; // JSR byte length is 3 (counter jumps forward by 2), so it must be negated
     }
@@ -904,7 +914,7 @@ impl CPU {
 
     fn RTS(&mut self) {
         // We have to jump past JSR and the absolute address for the next instruction
-        self.program_counter = self.pop_stack_u16() + 3; 
+        self.program_counter = self.pop_stack_u16(); 
     }
 
     fn SBC(&mut self, mode: &AddressingMode) {

@@ -96,6 +96,14 @@ lazy_static! {
         Opcode::new("CPY", AddressingMode::ZeroPage, 0xC4, 2, 3),
         Opcode::new("CPY", AddressingMode::Absolute, 0xCC, 3, 4),
 
+        Opcode::new("DCP", AddressingMode::ZeroPage, 0xC7, 2, 5),
+        Opcode::new("DCP", AddressingMode::ZeroPageX, 0xD7, 2, 6),
+        Opcode::new("DCP", AddressingMode::Absolute, 0xCF, 3, 6),
+        Opcode::new("DCP", AddressingMode::AbsoluteX, 0xDF, 3, 7),
+        Opcode::new("DCP", AddressingMode::AbsoluteY, 0xDB, 3, 7),
+        Opcode::new("DCP", AddressingMode::IndexedIndirect, 0xC3, 2, 8),
+        Opcode::new("DCP", AddressingMode::IndirectIndexed, 0xD3, 2, 8),
+
         Opcode::new("DEC", AddressingMode::ZeroPage, 0xC6, 2, 5),
         Opcode::new("DEC", AddressingMode::ZeroPageX, 0xD6, 2, 6),
         Opcode::new("DEC", AddressingMode::Absolute, 0xCE, 3, 6),

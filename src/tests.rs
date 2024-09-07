@@ -187,10 +187,11 @@ mod test {
         assert_eq!(cpu.register_a, 3); 
     }
 
+    // Reminder that the program is loaded into 0x600! 
     #[test]
     fn test_jmp_jsr_rts() {
         let mut cpu: CPU = CPU::new();
-        cpu.load_and_execute(vec![0xA9, 0x0A, 0x20, 0x06, 0x80, 0x00, 0xA9, 0x01, 0x60, 0x00]);
+        cpu.load_and_execute(vec![0xA9, 0x0A, 0x20, 0x06, 0x06, 0x00, 0xA9, 0x01, 0x60, 0x00]);
         assert_eq!(cpu.register_a, 1); 
     }
 
