@@ -9,3 +9,4 @@ Here are my major references concerning the overall organization and direction o
 - [The NES Emulator from Scratch Series by javidx9](https://www.youtube.com/@javidx9)
   <br> *Explains the general concepts of the 6502 architecture very well*
 - [The 6502 Instruction Set by Masswerk](https://www.masswerk.at/6502/6502_instruction_set.html)
+- [The Snake Assembly Code by wkjagt](https://gist.github.com/wkjagt/9043907)
