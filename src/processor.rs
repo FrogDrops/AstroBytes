@@ -67,13 +67,13 @@ impl CPU {
         }
     }
 
-    /* 
+/* 
     ---------------------------------------------------------------------------------------------------------
     FUNCTIONS FOR MEMORY
 
     We need these to fetch data from memory. Addresses are stored in little endian mode: least significant byte first, most significant byte second.
     If we want to fetch a 16-bit address, we have to keep that in mind
-    */
+*/
     pub fn read_memory_u8(&self, address: u16) -> u8 {
         self.ram[address as usize]
     }
@@ -318,7 +318,7 @@ impl CPU {
     }
 
     // Load into program ROM without executing it
-    pub fn load_program(&mut self, program: &Vec<u8>) {
+    pub fn load(&mut self, program: &Vec<u8>) {
         self.ram[0x0600..(0x0600 + program.len())].copy_from_slice(&program[..]);
         self.write_memory_u16(0xFFFC, 0x0600);
 
@@ -327,7 +327,7 @@ impl CPU {
 
     // Load into program ROM and execute it, useful for testing
     pub fn load_and_execute(&mut self, program: Vec<u8>) {
-        self.load_program(&program);
+        self.load(&program);
 
         // Clear registers in case user wants to load and execute another program afterwards
         self.register_a = 0;
@@ -337,7 +337,7 @@ impl CPU {
         self.program_counter = self.read_memory_u16(0xFFFC); // 0xFFFC holds address of the starting instruction
         
         self.callback(|_| {});
-        self.clear_program(&program);
+        self.clear(&program);
     }
 
     // Program counter must be updated accordingly after every executed opcode
@@ -348,7 +348,7 @@ impl CPU {
     }
 
     // Unloads program from ROM
-    pub fn clear_program(&mut self, program: &Vec<u8>) {
+    pub fn clear(&mut self, program: &Vec<u8>) {
         for i in 0x0600..= 0x8000 + program.len() {
             self.ram[i] = 0;
         }
@@ -400,32 +400,32 @@ impl CPU {
     fn get_address(&mut self, mode: &AddressingMode) -> u16 {
         match mode {
 
-            AddressingMode::Absolute => self.read_memory_u16(self.program_counter),
+            AddressingMode::Absolute => self.read_memory_u16(self.program_counter), // Little endian mode
 
             AddressingMode::AbsoluteX => {
+                // Read address from program counter and add the offset from register x to get the resulting address
                 let base_address: u16 = self.read_memory_u16(self.program_counter);
-                let address: u16 = base_address.wrapping_add(self.register_x as u16);
-                
-                address
+                base_address.wrapping_add(self.register_x as u16)
             }
 
             AddressingMode::AbsoluteY => {
+                // Same here but for register y
                 let base_address: u16 = self.read_memory_u16(self.program_counter);
-                let address: u16 = base_address.wrapping_add(self.register_y as u16);
-                
-                address
+                base_address.wrapping_add(self.register_y as u16)
             }
 
-            AddressingMode::Immediate | AddressingMode::Relative => self.program_counter,
+            AddressingMode::Immediate | AddressingMode::Relative => self.program_counter, // Fetch the constant that comes after the opcode, no address needed
 
             AddressingMode::Implied | AddressingMode::Accumulator | AddressingMode::Indirect => {
                 panic!("Mode does not require an argument!");
             }
 
             AddressingMode::IndexedIndirect => {
-                let base_address = self.read_memory_u8(self.program_counter);
+
+                // Get one-byte, add register x to it as an offset to get the lsb byte, what follows after is the msb byte. That is the address
+                let byte: u8 = self.read_memory_u8(self.program_counter);
                 
-                let pointer: u8 = (base_address as u8).wrapping_add(self.register_x); 
+                let pointer: u8 = (byte).wrapping_add(self.register_x); 
                 let lsb = self.read_memory_u8(pointer as u16);
                 let msb = self.read_memory_u8(pointer.wrapping_add(1) as u16);
                 
