@@ -1,10 +1,9 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 use core::panic;
-
 use crate::opcode_info::OPCODES_TABLE;
 
-const START_OF_STACK: u16 = 0x0100;
+const STACK_START: u16 = 0x0100;
 
 /*
    For the CPU component (also known as the 2A03 chip in the case of the NES :D):
@@ -15,22 +14,12 @@ const START_OF_STACK: u16 = 0x0100;
    4. Repeat the cycle (wait for the next clock signal)
 */
 
-pub struct CPU {
-    pub register_a: u8,
-    pub register_x: u8,
-    pub register_y: u8,
-    pub status_flags: u8,
-    pub program_counter: u16,
-    pub stack_pointer: u8, 
-    ram: [u8; 0xFFFF]
-}
+/*
+    Addressing Modes (we will arrange these in an enum):
 
-    /*
-    Addressing Modes:
-
-    Absolute - Takes the entire address as an argument (2 or 1 byte(s))
+    Absolute - Takes the entire address in little endian mode as an argument (2 or 1 byte(s))
     Zero Page - Takes an address in the first 255 bytes (1 byte)
-    Immediate - Takes a value as an argument (1 or 2 bytes)
+    Immediate - Takes a value / constant as an argument (1 or 2 bytes)
     Implied - Takes no argument
     Indirect - Absolute Address that points to address with the instructions (2 bytes)
     Indexed Indirect -  Zero page address + x points to zero page address that has the target address
@@ -38,7 +27,7 @@ pub struct CPU {
     Relative - 8-bit relative offset is added to program counter, used for branches
 
     Some can be modified with optional offsets from the x and y registers
-    */    
+*/    
 pub enum AddressingMode {
     Absolute,
     AbsoluteX,
@@ -55,36 +44,14 @@ pub enum AddressingMode {
     ZeroPageY,
 }
 
-pub trait Memory {
-    fn read_memory_u8(&self, address: u16) -> u8;
-
-    fn write_memory_u8(&mut self, address: u16, data: u8);
-
-    /* 
-    Addresses are stored in little endian mode: lsb first, msb second.
-    If we want to fetch an address, we have to keep that in mind
-    */
-    fn read_memory_u16(&mut self, position: u16) -> u16 {
-        let lsb = self.read_memory_u8(position) as u16;
-        let msb = self.read_memory_u8(position + 1) as u16;
-        (msb << 8) | (lsb as u16)
-    }
-
-    fn write_memory_u16(&mut self, position: u16, data: u16) {
-        let msb = (data >> 8) as u8;
-        let lsb = (data & 0xFF) as u8;
-        self.write_memory_u8(position, lsb);
-        self.write_memory_u8(position + 1, msb);
-    }    
-}
-
-impl Memory for CPU {
-    fn read_memory_u8(&self, address: u16) -> u8 {
-        self.ram[address as usize]
-    }
-    fn write_memory_u8(&mut self, address: u16, data: u8) {
-        self.ram[address as usize] = data;
-    }
+pub struct CPU {
+    pub register_a: u8, // Accumulator register
+    pub register_x: u8, // X index register
+    pub register_y: u8, // Y index register
+    pub status_flags: u8, // 0000_0000
+    pub program_counter: u16, // Points to the next instruction to execute
+    pub stack_pointer: u8, // Points to the top of the stack. The stack for the 6502 grows top to bottom. Memory allocated for stack pointer is 0x0100 - 0x01FF
+    ram: [u8; 0xFFFF]
 }
 
 impl CPU { 
@@ -95,20 +62,53 @@ impl CPU {
             register_y: 0,
             status_flags: 0b0000_0000,
             program_counter: 0,
-            stack_pointer: 0xFF, // Memory for stack pointer is from 0x0100 - 0x01FF
+            stack_pointer: 0xFF, 
             ram: [0; 0xFFFF]
         }
     }
 
-    pub fn execute(&mut self) {
-        self.execute_callback(|_| {});
+    /* 
+    ---------------------------------------------------------------------------------------------------------
+    FUNCTIONS FOR MEMORY
+
+    We need these to fetch data from memory. Addresses are stored in little endian mode: least significant byte first, most significant byte second.
+    If we want to fetch a 16-bit address, we have to keep that in mind
+    */
+    pub fn read_memory_u8(&self, address: u16) -> u8 {
+        self.ram[address as usize]
     }
 
-    // Run instructions in the program ROM section
-    pub fn execute_callback<F>(&mut self, mut callback: F) where F: FnMut(&mut CPU), {
+    pub fn write_memory_u8(&mut self, address: u16, data: u8) {
+        self.ram[address as usize] = data;
+    }
+
+    pub fn read_memory_u16(&mut self, position: u16) -> u16 {
+        let lsb = self.read_memory_u8(position) as u16;
+        let msb = self.read_memory_u8(position + 1) as u16;
+        (msb << 8) | (lsb as u16)
+    }
+
+    pub fn write_memory_u16(&mut self, position: u16, data: u16) {
+        let msb = (data >> 8) as u8;
+        let lsb = (data & 0xFF) as u8;
+        self.write_memory_u8(position, lsb);
+        self.write_memory_u8(position + 1, msb);
+    }   
+
+    /*
+    ---------------------------------------------------------------------------------------------------------
+    EXECUTION, LOADING, AND RESETTING PROGRAM
+
+    Here are the functions that we need to load in our program, reset it, and execute it. The giant match function 
+    gets an opcode, finds its matching function with its hex code, executes that function, and updates the program counter
+    to get the next instruction
+    */
+
+    // Run instructions from the program ROM 
+    pub fn callback<F>(&mut self, mut call: F) where F: FnMut(&mut CPU), {
 
         loop {
-            callback(self);
+            call(self);
 
             let opcode = self.read_memory_u8(self.program_counter);
             let opcode_info = match OPCODES_TABLE.get(&opcode) {
@@ -118,6 +118,7 @@ impl CPU {
                 }
             };
             let mode = &opcode_info.mode;
+            // println!("{}", opcode);
 
             self.program_counter += 1;
 
@@ -316,26 +317,27 @@ impl CPU {
         }
     }
 
-    // Load into program ROM
+    // Load into program ROM without executing it
     pub fn load_program(&mut self, program: &Vec<u8>) {
         self.ram[0x0600..(0x0600 + program.len())].copy_from_slice(&program[..]);
         self.write_memory_u16(0xFFFC, 0x0600);
+
+        self.program_counter = self.read_memory_u16(0xFFFC); // 0xFFFC holds address of the starting instruction
     }
 
+    // Load into program ROM and execute it, useful for testing
     pub fn load_and_execute(&mut self, program: Vec<u8>) {
         self.load_program(&program);
-        self.reset(); // Make sure no data from any previous program carries over
-        self.execute();
-        self.clear_program(&program);
-    }
 
-    // Clear registers
-    pub fn reset(&mut self) {
+        // Clear registers in case user wants to load and execute another program afterwards
         self.register_a = 0;
         self.register_x = 0;
         self.register_y = 0;
         self.status_flags = 0b0000_0000;
-        self.program_counter = self.read_memory_u16(0xFFFC);
+        self.program_counter = self.read_memory_u16(0xFFFC); // 0xFFFC holds address of the starting instruction
+        
+        self.callback(|_| {});
+        self.clear_program(&program);
     }
 
     // Program counter must be updated accordingly after every executed opcode
@@ -345,30 +347,35 @@ impl CPU {
         self.program_counter += (opcode_info.byte_length as u16) - 1;
     }
 
+    // Unloads program from ROM
     pub fn clear_program(&mut self, program: &Vec<u8>) {
         for i in 0x0600..= 0x8000 + program.len() {
             self.ram[i] = 0;
         }
     }
 
-    /*
+/*
+    ---------------------------------------------------------------------------------------------------------
+    STACK OPERATIONS
+    
     Since this is a downward growing stack, the stack pointer always points 
     to the next empty location in memory
-    */
+*/
 
     pub fn pop_stack_u8(&mut self) -> u8 {
         // Start of the stack is at 0x01FF, so popping an item brings it closer to this address
         self.stack_pointer = self.stack_pointer.wrapping_add(1);
-        self.read_memory_u8(START_OF_STACK as u16 + self.stack_pointer as u16)
+        self.read_memory_u8(STACK_START as u16 + self.stack_pointer as u16)
     }
 
     pub fn push_stack_u8(&mut self, data: u8) {
         // Similarly, pushing an item brings it further away from 0x01FF
-        self.write_memory_u8(START_OF_STACK as u16 + self.stack_pointer as u16, data);
+        self.write_memory_u8(STACK_START as u16 + self.stack_pointer as u16, data);
         self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     }
 
     pub fn pop_stack_u16(&mut self) -> u16 {
+        // Push two bytes to the stack one at a time
         let lsb = self.pop_stack_u8() as u16;
         let msb: u16 = self.pop_stack_u8() as u16;
 
@@ -382,6 +389,13 @@ impl CPU {
         self.push_stack_u8(msb);
         self.push_stack_u8(lsb);
     }
+
+ /*
+    ---------------------------------------------------------------------------------------------------------
+    ADDRESSING MODES
+    
+    The addressing mode of an opcode determines how that opcode deals with data
+*/
 
     fn get_address(&mut self, mode: &AddressingMode) -> u16 {
         match mode {
@@ -405,7 +419,7 @@ impl CPU {
             AddressingMode::Immediate | AddressingMode::Relative => self.program_counter,
 
             AddressingMode::Implied | AddressingMode::Accumulator | AddressingMode::Indirect => {
-                panic!("Mode does not require an argument / is not supported!");
+                panic!("Mode does not require an argument!");
             }
 
             AddressingMode::IndexedIndirect => {
@@ -447,24 +461,25 @@ impl CPU {
         }
     }
     
-    /* 
-    The Status Flags:
+/* 
+    ---------------------------------------------------------------------------------------------------------
+    STATUS FLAG FUNCTIONS 
 
-    C: Carry Flag (LSB) (Unsigned overflow)
+    C: Carry Flag (LSB, bit 0) (Unsigned overflow)
     Z: Zero Flag 
     I: Interrupt Disable
     D: Decimal Mode Flag (Not used)
     U: Unused Flag
     B: Break Flag
     V: Overflow Flag (Signed overflow)
-    N: Negative Flag (MSB)
+    N: Negative Flag (MSB, bit 7)
 
     N V B U D I Z C
 
     6502 uses zero-based index (0 to 7 bits)
 
-    The unused flag is always set as 1
-    */
+    The status flag marks down certain conditions whenever they are met, such as when there is an overflow or zero result
+*/
     fn set_overflow_flag(&mut self) {
         self.status_flags = self.status_flags | 0b0100_0000;
     }
@@ -529,12 +544,15 @@ impl CPU {
         }
     }
 
-    /*
-    From here on out, the functions will implement
-    each of the NES' opcodes, changing the status flags
-    as appropriate (*sigh*, yes, even the B-flag)
-    */
+/*
+    ---------------------------------------------------------------------------------------------------------
+    THE ACTUAL OPCODE FUNCTIONS
 
+    From here on out, the functions will implement
+    each of the 6502 opcodes, changing the status flags
+    as appropriate 
+*/
+    // Add with carry
     fn ADC(&mut self, data: u8) {
         let carry = self.status_flags & 0b0000_0001;
         let result = self.register_a as u16 + data as u16 + carry as u16;
@@ -570,6 +588,7 @@ impl CPU {
         self.zero_and_negative_flags(self.register_a);
     }
 
+    // Arithmetic shift left with register a
     fn ASL_ACCUMULATOR(&mut self) {
         if self.register_a >> 7 == 1 {
             self.set_carry_flag();
@@ -581,6 +600,7 @@ impl CPU {
         self.zero_and_negative_flags(self.register_a);
     }
 
+    // General arithmetic shift left
     fn ASL(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         let mut data = self.read_memory_u8(address);
@@ -597,7 +617,7 @@ impl CPU {
         self.zero_and_negative_flags(data);
     }
 
-    // Works like AND opcode, except it doesn't change register a
+    // Works like AND opcode, except it doesn't change register a so not really
     fn BIT(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         let data = self.read_memory_u8(address);
@@ -619,19 +639,22 @@ impl CPU {
         self.zero_and_negative_flags(result);
     }
 
+    // All of the branch instructions, which act as jumps depending on the status of the status flag
     fn BRANCH(&mut self, condition: bool) {
         // We branch starting from the instruction after the branch opcode
         if condition {
             let offset = self.read_memory_u8(self.program_counter) as i8;
-            let jump_address = self.program_counter.wrapping_add(1).wrapping_add(offset as u16);
-            self.program_counter = jump_address;
+            let jump_address = self.program_counter.wrapping_add(1).wrapping_add(offset as u16); // 0x00 means the very next instruction
+            self.program_counter = jump_address - 1; // Since counter is incremented by one after this instruction
         }
     }
 
+    // Clear decimal, I'm not sure why I put it in this section but oh well...
     fn CLD(&mut self) {
         self.status_flags = self.status_flags & 0b1111_0111;
     }
 
+    // Compare the register with a value in memory and change the carry flag accordingly
     fn COMPARE(&mut self, mode: &AddressingMode, register: u8) {
         // Register a / x / y - memory
         let address: u16 = self.get_address(mode);
@@ -646,12 +669,13 @@ impl CPU {
         self.zero_and_negative_flags(register.wrapping_sub(value));
     }
 
-    // DEC + CMP opcode
+    // DEC + CMP opcode, not really official
     fn DCP(&mut self, mode: &AddressingMode) {
         self.DEC(&mode);
         self.COMPARE(&mode, self.register_a);
     }
 
+    // Decrement a value in memory by 1
     fn DEC(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         let result = self.read_memory_u8(address).wrapping_sub(1);
@@ -659,9 +683,10 @@ impl CPU {
         self.zero_and_negative_flags(result)
     }
 
+    // These two decrement their registers by 1 respectively
     fn DEX(&mut self) {
         self.register_x = self.register_x.wrapping_sub(1);
-        self.zero_and_negative_flags(self.register_y);
+        self.zero_and_negative_flags(self.register_x);
     }
 
     fn DEY(&mut self) {
@@ -669,6 +694,7 @@ impl CPU {
         self.zero_and_negative_flags(self.register_y);
     }
 
+    // Exclusive or operation
     fn EOR(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         let data = self.read_memory_u8(address);
@@ -676,6 +702,7 @@ impl CPU {
         self.zero_and_negative_flags(self.register_a);
     }
 
+    // Increment value in memory by 1, same for registers x and y
     fn INC(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         let result = self.read_memory_u8(address).wrapping_add(1);
@@ -693,9 +720,10 @@ impl CPU {
         self.zero_and_negative_flags(self.register_y);
     }
 
+    // Jump to a location in memory
     fn JMP_ABSOLUTE(&mut self) {
         let specified_address = self.read_memory_u16(self.program_counter);
-        self.program_counter = specified_address;
+        self.program_counter = specified_address - 2; // Since the counter is incremented by two after this
     }
 
     fn JMP_INDIRECT(&mut self) {
@@ -706,7 +734,7 @@ impl CPU {
         the target address if it falls on a page boundary
         (we'll emulate that as well)
         */
-        let indirect_reference = if address & 0x00FF == 0x00FF {
+        let indirect_reference = if (address & 0x00FF) == 0x00FF {
             let lsb = self.read_memory_u8(address);
             let msb = self.read_memory_u8(address & 0xFF00);
 
@@ -715,15 +743,17 @@ impl CPU {
             self.read_memory_u16(address)
         };
 
-        self.program_counter = indirect_reference;
+        self.program_counter = indirect_reference - 2; // Since the counter is incremented by two after this
     }
 
+    // Jump to a subroutine
     fn JSR(&mut self) {
         self.push_stack_u16(self.program_counter + 2); // Location of JSR opcode
         let target_address = self.read_memory_u16(self.program_counter);
         self.program_counter = target_address - 2; // JSR byte length is 3 (counter jumps forward by 2), so it must be negated
     }
 
+    // Load values into the a, x, and y registers
     fn LDA(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         self.register_a = self.read_memory_u8(address);
@@ -742,6 +772,7 @@ impl CPU {
         self.zero_and_negative_flags(self.register_y);
     }
 
+    // Logical shift right and logical shift left functions, with unique functions for the accumulator itself
     fn LSR_ACCUMULATOR(&mut self) {
         // Data shifted to the right. Old bit 0 is carry flag
         // New bit 7 is set to 0
@@ -777,6 +808,7 @@ impl CPU {
         self.zero_and_negative_flags(data);
     }
 
+    // Or operation with the accumulator
     fn ORA(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         let data = self.read_memory_u8(address);
@@ -784,16 +816,19 @@ impl CPU {
         self.zero_and_negative_flags(self.register_a);
     }
 
+    // Push accumulator onto stack
     fn PHA(&mut self) {
         self.push_stack_u8(self.register_a);
     }
 
+    // Push status flag onto stack
     fn PHP(&mut self) {
         // Break is pushed as 1
         self.set_break_flag();
         self.push_stack_u8(self.status_flags);
     }
 
+    // The alternatives for pulling the accumulator and the status flag from the stack
     fn PLA(&mut self) {
         self.register_a = self.pop_stack_u8();
         self.zero_and_negative_flags(self.register_a);
@@ -805,6 +840,7 @@ impl CPU {
         self.clear_break_flag();
     }
 
+    // Rotate value in accumulator to the right
     fn ROL_ACCUMULATOR(&mut self) {
         let old_bit_seven = (self.register_a & 0b1000_0000) >> 7;
         let current_carry_flag = self.status_flags & 0b0000_0001;
@@ -828,6 +864,7 @@ impl CPU {
         self.zero_and_negative_flags(self.register_a);
     }
 
+    // Rotate to the left
     fn ROL(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         let mut data = self.read_memory_u8(address);
@@ -854,6 +891,7 @@ impl CPU {
         self.write_memory_u8(address, data);
     }
 
+    // Rotate accumulator value to the right
     fn ROR_ACCUMULATOR(&mut self) {
         let old_bit_seven = (self.register_a & 0b1000_0000) >> 7;
         let current_carry_flag = self.status_flags & 0b0000_0001;
@@ -877,6 +915,7 @@ impl CPU {
         self.zero_and_negative_flags(self.register_a);
     }
 
+    // Rotate value in memory to the right
     fn ROR(&mut self, mode: &AddressingMode) {
         let address = self.get_address(&mode);
         let mut data = self.read_memory_u8(address);
@@ -903,6 +942,7 @@ impl CPU {
         self.write_memory_u8(address, data);
     }
 
+    // Return from interrupt
     fn RTI(&mut self) {
         // Pulls flags followed by counter
         self.status_flags = self.pop_stack_u8();
@@ -912,11 +952,12 @@ impl CPU {
         self.clear_break_flag();
     }
 
+    // Return from subroutine
     fn RTS(&mut self) {
-        // We have to jump past JSR and the absolute address for the next instruction
         self.program_counter = self.pop_stack_u16(); 
     }
 
+    // Subtract with carry 
     fn SBC(&mut self, mode: &AddressingMode) {
         // We simply take the two's complement
         // And call our ADC opcode (the borrow value will be added there)
@@ -927,10 +968,12 @@ impl CPU {
         self.ADC((data as i8).wrapping_neg() as u8);
     }   
 
+    // Set the decimal flag, even though we're never going to use this...
     fn SED(&mut self) {
         self.status_flags = self.status_flags | 0b0000_1000;
     }
 
+    // Save the value of a register into a memory address
     fn STA(&mut self, mode: &AddressingMode) {
         let address = self.get_address(mode);
         self.write_memory_u8(address, self.register_a);
@@ -946,6 +989,7 @@ impl CPU {
         self.write_memory_u8(address, self.register_y);
     }
 
+    // Transfer a value from one register to the other
     fn TAX(&mut self) {
         self.register_x = self.register_a;
         self.zero_and_negative_flags(self.register_x);

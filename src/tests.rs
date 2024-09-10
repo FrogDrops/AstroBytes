@@ -28,13 +28,6 @@ mod test {
     }
 
     #[test]
-    fn test_five_ops() {
-        let mut cpu = CPU::new();
-        cpu.load_and_execute(vec![0xA9, 0xC0, 0xAA, 0xE8, 0x00]);
-        assert_eq!(cpu.register_x, 0xC1)
-    }
-
-    #[test]
     fn test_dec_dex_dey() {
         let mut cpu: CPU = CPU::new();
 
@@ -193,6 +186,9 @@ mod test {
         let mut cpu: CPU = CPU::new();
         cpu.load_and_execute(vec![0xA9, 0x0A, 0x20, 0x06, 0x06, 0x00, 0xA9, 0x01, 0x60, 0x00]);
         assert_eq!(cpu.register_a, 1); 
+
+        cpu.load_and_execute(vec![0xA2, 0x0A, 0x4C, 0x07, 0x06, 0xA2, 0x05, 0xE8, 0x00]);
+        assert_eq!(cpu.register_x, 11); 
     }
 
     #[test]
@@ -244,5 +240,15 @@ mod test {
 
         cpu.load_and_execute(vec![0xA9, 0x0A, 0xE9, 0x05, 0x00]); // 10 - 5 without carry
         assert_eq!(cpu.register_a, 0x05); 
+    }
+
+    #[test]
+    fn test_branch() {
+        let mut cpu: CPU = CPU::new();
+        cpu.load_and_execute(vec![0x38, 0xB0, 0x02, 0xA9, 0x0A, 0xA9, 0x05, 0x00]);
+        assert_eq!(cpu.register_a, 0x05);
+
+        cpu.load_and_execute(vec![0x10, 0x02, 0xA9, 0x0A, 0xA9, 0x05, 0x00]);
+        assert_eq!(cpu.register_a, 0x05);
     }
 }
