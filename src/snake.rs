@@ -70,7 +70,7 @@ pub fn run_snake() {
 
         // If the screen state has changed, this function is called
         if check_screen_state(cpu, &mut screen_state) {
-            texture.update(None, &screen_state, 32*3).unwrap();
+            texture.update(None, &screen_state, W as usize * 3).unwrap();
             canvas.copy(&texture, None, None).unwrap();
             canvas.present();
         }
@@ -122,7 +122,7 @@ fn color(byte: u8) -> Color {
     }
 }
 
-fn check_screen_state(cpu: &CPU, frame: &mut [u8; 32*3*32]) -> bool {
+fn check_screen_state(cpu: &CPU, frame: &mut [u8; W as usize * 3 * H as usize]) -> bool {
     let mut frame_idx = 0;
     let mut update = false;
     for i in 0x0200..0x600 {

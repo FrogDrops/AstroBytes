@@ -3,16 +3,7 @@
 use core::panic;
 use crate::opcode_info::OPCODES_TABLE;
 
-const STACK_START: u16 = 0x0100;
-
-/*
-   For the CPU component (also known as the 2A03 chip in the case of the NES :D):
-
-   1. Fetch next execution instruction from the instruction memory (using the program counter)
-   2. Decode the instruction
-   3. Execute the instruction
-   4. Repeat the cycle (wait for the next clock signal)
-*/
+const STACK_START: u16 = 0x0100; // Memory allocated for stack is 0100 - 01FF
 
 /*
     Addressing Modes (we will arrange these in an enum):
@@ -51,6 +42,7 @@ pub struct CPU {
     pub status_flags: u8, // 0000_0000
     pub program_counter: u16, // Points to the next instruction to execute
     pub stack_pointer: u8, // Points to the top of the stack. The stack for the 6502 grows top to bottom. Memory allocated for stack pointer is 0x0100 - 0x01FF
+    pub info: Vec<u16>, // To store our info after the program terminates
     ram: [u8; 0xFFFF]
 }
 
@@ -63,6 +55,7 @@ impl CPU {
             status_flags: 0b0000_0000,
             program_counter: 0,
             stack_pointer: 0xFF, 
+            info: Vec::new(),
             ram: [0; 0xFFFF]
         }
     }
@@ -108,8 +101,7 @@ impl CPU {
     pub fn callback<F>(&mut self, mut call: F) where F: FnMut(&mut CPU), {
 
         loop {
-            call(self);
-
+            
             let opcode = self.read_memory_u8(self.program_counter);
             let opcode_info = match OPCODES_TABLE.get(&opcode) {
                 Some(info) => info,
@@ -117,8 +109,8 @@ impl CPU {
                     panic!("Error opcode is: {:X}", opcode);
                 }
             };
+
             let mode = &opcode_info.mode;
-            // println!("{}", opcode);
 
             self.program_counter += 1;
 
@@ -169,7 +161,10 @@ impl CPU {
                 0x70 => self.BRANCH(self.status_flags & 0b0100_0000 == 0b0100_0000),
 
                 // BRK
-                0x00 => return,
+                0x00 => {
+                    self.info = self.BRK(); // Save our info!
+                    return
+                }
 
                 // CLC
                 0x18 => self.clear_carry_flag(),
@@ -310,10 +305,14 @@ impl CPU {
                 
                 0x98 => self.TYA(),
                 
-                _ => panic!("Invalid Opcode!"),
+                _ => {
+                    println!("{} is an invalid Opcode! Program terminated", &opcode_info.hex_code);
+                    return;
+                }
             }
 
             self.update_program_counter(&opcode);
+            call(self); // Return to the function that called this function
         }
     }
 
@@ -400,7 +399,7 @@ impl CPU {
     fn get_address(&mut self, mode: &AddressingMode) -> u16 {
         match mode {
 
-            AddressingMode::Absolute => self.read_memory_u16(self.program_counter), // Little endian mode
+            AddressingMode::Absolute => self.read_memory_u16(self.program_counter), // Little endian mode, get full address
 
             AddressingMode::AbsoluteX => {
                 // Read address from program counter and add the offset from register x to get the resulting address
@@ -443,8 +442,10 @@ impl CPU {
                 added_address
             }
 
+            // Address is located in the zero page, only one byte needed
             AddressingMode::ZeroPage => self.read_memory_u8(self.program_counter) as u16,
 
+            // Get an address located in the zero page by adding the next byte with register x
             AddressingMode::ZeroPageX => {
                 let position = self.read_memory_u8(self.program_counter);
                 let address = position.wrapping_add(self.register_x) as u16;
@@ -452,6 +453,7 @@ impl CPU {
                 address 
             }
 
+            // Do the same but with register y
             AddressingMode::ZeroPageY => {
                 let position: u8 = self.read_memory_u8(self.program_counter);
                 let address: u16 = position.wrapping_add(self.register_y) as u16;
@@ -647,6 +649,14 @@ impl CPU {
             let jump_address = self.program_counter.wrapping_add(1).wrapping_add(offset as u16); // 0x00 means the very next instruction
             self.program_counter = jump_address - 1; // Since counter is incremented by one after this instruction
         }
+    }
+
+    // When executing a program by the user, we want to output the processor info before terminating the program
+    fn BRK(&mut self) -> Vec<u16> {
+        let info: Vec<u16> = vec![self.register_a as u16, self.register_x as u16, self.register_y as u16, self.stack_pointer as u16, 
+        self.status_flags as u16, self.program_counter - 1];
+
+        info
     }
 
     // Clear decimal, I'm not sure why I put it in this section but oh well...
