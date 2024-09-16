@@ -657,7 +657,11 @@ impl CPU {
 
         let result = self.register_a & data;
 
-        self.zero_and_negative_flags(result);
+        if result == 0 {
+            self.set_zero_flag();
+        } else {
+            self.clear_zero_flag();
+        }
     }
 
     // All of the branch instructions, which act as jumps depending on the status of the status flag

@@ -7,7 +7,7 @@ use sdl2::pixels::PixelFormatEnum;
 use rand::Rng;
 extern crate sdl2;
 
-const SCALE: f32 = 10.0;
+const SCALE: f32 = 20.0;
 const W: u32 = 32; // Width
 const H: u32 = 32; // Height
 
@@ -75,10 +75,11 @@ pub fn run_snake() {
             canvas.present();
         }
 
-        ::std::thread::sleep(std::time::Duration::new(0, 50_000)); // To make sure the game doesn't go too fast
+        ::std::thread::sleep(std::time::Duration::new(0, 5_000)); // To make sure the game doesn't go too fast
     });
 }
 
+// Last pressed key is written into 0xFF
 fn check_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     for event in event_pump.poll_iter() {
         match event {
@@ -111,6 +112,7 @@ fn check_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     }
 } 
 
+// 0x200 - 0x600 is dedicated to the colors of each pixel
 fn color(byte: u8) -> Color {
     match byte {
         0 => sdl2::pixels::Color::BLACK,

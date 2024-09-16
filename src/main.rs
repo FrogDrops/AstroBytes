@@ -34,6 +34,7 @@ fn main() {
 
     if choice == "snake" { // Run snake
         snake::run_snake();
+        std::process::exit(0);  
 
     } else if choice != "write" { // Run a user script
         std::process::exit(0);  
