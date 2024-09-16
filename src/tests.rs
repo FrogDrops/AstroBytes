@@ -6,7 +6,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_transfer_ops() {
+    fn test_transfer() {
         let mut cpu = CPU::new();
         cpu.load_and_execute(vec![0xA9, 0x0A, 0xAA, 0x00]);
         assert_eq!(cpu.register_x, 10); 

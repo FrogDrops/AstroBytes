@@ -43,6 +43,7 @@ pub struct CPU {
     pub program_counter: u16, // Points to the next instruction to execute
     pub stack_pointer: u8, // Points to the top of the stack. The stack for the 6502 grows top to bottom. Memory allocated for stack pointer is 0x0100 - 0x01FF
     pub info: Vec<u16>, // To store our info after the program terminates
+    pub print_mode: bool,
     ram: [u8; 0xFFFF]
 }
 
@@ -56,6 +57,7 @@ impl CPU {
             program_counter: 0,
             stack_pointer: 0xFF, 
             info: Vec::new(),
+            print_mode: false,
             ram: [0; 0xFFFF]
         }
     }
@@ -162,7 +164,10 @@ impl CPU {
 
                 // BRK
                 0x00 => {
-                    self.info = self.BRK(); // Save our info!
+                    if self.print_mode { // We don't want our values to be printed while playing snake!
+                        self.save_and_print(&opcode_info.mnemonic, &opcode_info.hex_code); 
+                    }
+                    
                     return
                 }
 
@@ -312,6 +317,11 @@ impl CPU {
             }
 
             self.update_program_counter(&opcode);
+
+            if self.print_mode { // We don't want our values to be printed while playing snake!
+                self.save_and_print(&opcode_info.mnemonic, &opcode_info.hex_code); 
+            }
+
             call(self); // Return to the function that called this function
         }
     }
@@ -351,6 +361,15 @@ impl CPU {
         for i in 0x0600..= 0x8000 + program.len() {
             self.ram[i] = 0;
         }
+    }
+
+    // Stores current processor info and prints it to the command line
+    fn save_and_print(&mut self, mnemonic: &str, hexcode: &u8) {
+        self.info = vec![self.register_a as u16, self.register_x as u16, self.register_y as u16, self.stack_pointer as u16, 
+        self.status_flags as u16, self.program_counter - 1];
+        
+        println!("\n AFTER {} - {:#04x} \n \n Register Accumulator: {:#04x} \n Register X: {:#04x} \n Register Y: {:#04x} \n Stack Pointer: {} \n Status Flags: {:#b} \n Program Counter: {:#06x} \n", 
+        mnemonic, hexcode, self.info[0], self.info[1], self.info[2], self.info[3], self.info[4], self.info[5]);
     }
 
 /*
@@ -649,14 +668,6 @@ impl CPU {
             let jump_address = self.program_counter.wrapping_add(1).wrapping_add(offset as u16); // 0x00 means the very next instruction
             self.program_counter = jump_address - 1; // Since counter is incremented by one after this instruction
         }
-    }
-
-    // When executing a program by the user, we want to output the processor info before terminating the program
-    fn BRK(&mut self) -> Vec<u16> {
-        let info: Vec<u16> = vec![self.register_a as u16, self.register_x as u16, self.register_y as u16, self.stack_pointer as u16, 
-        self.status_flags as u16, self.program_counter - 1];
-
-        info
     }
 
     // Clear decimal, I'm not sure why I put it in this section but oh well...

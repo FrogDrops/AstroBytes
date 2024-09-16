@@ -3,7 +3,7 @@ mod tests;
 mod opcode_info;
 mod snake;
 use crate::processor::CPU;
-use std::io;
+use std::io::{self, stdout, Write};
 
 fn main() {
 
@@ -22,6 +22,8 @@ fn main() {
  ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀▀▀▀▀▀");
     println!("\n \n Welcome to the 6502! \n 1. To write code type and enter write \n 2. To run snake type and enter snake \n");
 
+    print!("-> ");
+    stdout().flush().unwrap();
     let mut choice = String::new();
 
     io::stdin()
@@ -38,21 +40,24 @@ fn main() {
     } 
 
     // If user has chosen to write their own code, this part of the program executes instead
-    print!("\n ---------------------------------------------------------------------------------------------------------");
+    print!("\n ---------------------------------------------------------------------------------------------------------\n");
 
     println!("\n Write your assembly code in pairs of hex digits, with spaces between every two digits (or a byte).
-    \n It is not case sensitive. Example: A9 10. Remember that addresses are written in little-endian style.
-    \n To execute your code, press enter. After the program runs, it will print out all relevant information. \n");
+ It is not case sensitive. Example: A9 10. Remember that addresses are written in little-endian style.
+ To execute your code, press enter. After each instruction (not values), relevant processor information will be printed. \n");
+
+    print!("-> ");
+    stdout().flush().unwrap();
 
     // Assembly code by the user
     let mut instructions = String::new();
 
     io::stdin()
         .read_line(&mut instructions)
-        .expect("\n Invalid input, should be string");
+        .expect("\n Invalid input, should be string \n");
 
     if instructions.len() == 0 {
-        println!("\n Invalid input. Please restart and try again.");
+        println!("\n Invalid input. Please restart and try again. \n");
         std::process::exit(0);
     }
 
@@ -109,16 +114,15 @@ fn main() {
         }
 
         else {
-            println!("\n Invalid input. Please restart and try again.");
+            println!("\n Invalid input. Please restart and try again. \n");
             std::process::exit(0);
         }
     }
 
     // Now that we have an actual usable vector, load it into the program and execute it!
     let mut cpu = CPU::new();
+    cpu.print_mode = true; // We want to print the info after each opcode
     cpu.load_and_execute(program_vec);
-    let info = cpu.info;
-    println!("\n Register Accumulator: {} \n Register X: {} \n Register Y: {} \n Stack Pointer: {} \n Status Flags: {} \n Program Counter: {} \n", info[0], info[1], info[2], info[3], info[4], info[5]);
 
 }
 

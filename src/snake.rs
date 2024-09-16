@@ -116,8 +116,9 @@ fn color(byte: u8) -> Color {
         0 => sdl2::pixels::Color::BLACK,
         1 => sdl2::pixels::Color::WHITE,
         2 | 3 | 4 | 5 | 6 | 7 => sdl2::pixels::Color::BLUE,
-        9 | 10 | 11 | 12 | 13 | 14 => sdl2::pixels::Color::CYAN,
-        _ => sdl2::pixels::Color::GREEN,
+        9 | 10 | 11  => sdl2::pixels::Color::CYAN,
+        12 | 13 | 14 => sdl2::pixels::Color::GREEN,
+        _ => sdl2::pixels::Color::YELLOW,
 
     }
 }
