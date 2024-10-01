@@ -1,5 +1,3 @@
-![6502 Startup](6502_intro.png)
-
 This is my take on emulating the 6502 in Rust, which can execute an assembly script from the user or play snake! Simply run the program on the terminal, choose an option (either writing or playing snake), and see the results. The results (the data of the registers after the last instruction) will be printed onto the terminal after each instruction (values are not instructions so results will not be printed after them). 
 
 I treated it mostly as a learning experience in terms of Rust and the layout of the 6502 microprocessor. I also hope that my explanations in the code for the structure of the 6502 would be helpful for anyone else who would be interested.
