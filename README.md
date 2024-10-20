@@ -18,3 +18,5 @@ Here are my major references concerning the overall organization and direction o
 - [The Snake Assembly Code by wkjagt](https://gist.github.com/wkjagt/9043907)
   <br> The assembly code used for snake
 - [6502 NES Reference](https://www.nesdev.org/obelisk-6502-guide/reference.html)
+
+![assembly example](https://github.com/user-attachments/assets/2b4bc7c8-3bd7-4d7a-8274-208393254f78)
