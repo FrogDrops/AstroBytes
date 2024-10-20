@@ -19,4 +19,7 @@ Here are my major references concerning the overall organization and direction o
   <br> The assembly code used for snake
 - [6502 NES Reference](https://www.nesdev.org/obelisk-6502-guide/reference.html)
 
-![assembly example](https://github.com/user-attachments/assets/2b4bc7c8-3bd7-4d7a-8274-208393254f78)
+
+<img width="518" alt="assembly_text" src="https://github.com/user-attachments/assets/6d0a20e3-f94f-41eb-93fb-f4b48e65a066">
+<img width="853" alt="6502_intro_part1" src="https://github.com/user-attachments/assets/b1de1c7f-6d1a-4618-baff-99ebad23a9b0">
+<img width="837" alt="program_6502" src="https://github.com/user-attachments/assets/330bb7b3-71be-46ea-ab35-0a8e3c455ebf">
