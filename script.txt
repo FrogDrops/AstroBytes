@@ -1,0 +1,11 @@
+// You can write comments by using //
+// New lines will be ignored, separate pairs of hex digits by whitespaces
+// Keep pairs of hex digits together (don't separate them between lines or comments)
+// An example of a valid program:
+
+a9 0a       // Load 0x0A into register a, this is address 0x600
+20 06 06    // Jump to subroutine in address 0x0606
+00          // Break (terminate program)
+a9 01       // Load 0x01 into register a
+60          // Return from subroutine
+00          // Break and go to address 0x605
