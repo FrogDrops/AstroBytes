@@ -1,8 +1,12 @@
-This is my take on emulating the 6502 in Rust, which can execute an assembly script (written in hexadecimal) from the user or play snake! Simply run the program on the terminal, choose an option (either writing or playing snake), and see the results. The results (the data of the registers after the last instruction) will be printed onto the terminal after each instruction. 
+This is my take on emulating the 6502 in Rust, which can now execute a 6502 assembly script (in hexadecimal) from a text file! It can also alternatively run snake (assembly code for snake provided by wkjagt). Simply:
+
+1. Run the program on the terminal, choose an option to either run a script from a text file or snake
+2. If you choose to run a script, type and enter the name of your text file (including the extension)
+3. The results of the script (the data of the registers after each instruction) will be printed on the terminal!
 
 I treated it mostly as a learning experience in terms of Rust and the layout of the 6502 microprocessor. I also hope that my explanations in the code for the structure of the 6502 would be helpful for anyone else who would be interested.
 
-In the future, I plan to make the program more functional by giving the option to execute assembly from a provided text file that is modifiable by the user!
+The code already comes in with a built-in text file called script.txt. This text file has some example code to show you how to format your script and even comment it! It's almost like an interpreter. You can use this text file or create your own.
 
 # References and Sources Used 
 Here are my major references concerning the overall organization and direction of the code. 
