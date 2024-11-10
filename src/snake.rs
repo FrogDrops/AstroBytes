@@ -75,7 +75,7 @@ pub fn run_snake() {
             canvas.present();
         }
 
-        ::std::thread::sleep(std::time::Duration::new(0, 5_000)); // To make sure the game doesn't go too fast
+        ::std::thread::sleep(std::time::Duration::new(0, 200_000)); // To make sure the game doesn't go too fast
     });
 }
 

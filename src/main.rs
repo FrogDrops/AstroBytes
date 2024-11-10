@@ -6,6 +6,7 @@ use crate::processor::CPU;
 use std::{env, fs};
 use std::io::{self, stdout, BufReader, BufRead, Write};
 use std::path::PathBuf;
+#[allow(unused)]
 
 fn main() {
 
@@ -47,10 +48,11 @@ fn main() {
         // If user has chosen to run their script in a text file, this part of the program executes instead
         print!("\n ---------------------------------------------------------------------------------------------------------\n");
 
-        println!("\nEnter the text file name of the 6502 script you want to run (with the extension) and press enter. For example: script.txt. 
-You can just use the built-in script.txt file if you want. Your code must be in pairs of hex digits, with spaces between every two digits (or a byte).
-It is not case sensitive. Remember that addresses are written in little-endian style. The code executes starting at memory 0x600. 
-After each instruction (not values), relevant processor information will be printed. Alternatively, enter q to quit. \n");
+        println!("\nEnter the text file name of the 6502 script you want to run and press enter.\n\nFor example: script.txt. You can just use the built-in script.txt file if you want.\n
+Your code must be in pairs of hex digits, with spaces between every two digits (or a byte).\n
+Remember that addresses are written in little-endian style. The code executes starting at memory 0x600.\n
+After each instruction (not values), relevant processor information will be printed.\n
+Alternatively, enter q to quit. \n");
 
         print!("-> ");
         stdout().flush().unwrap();
